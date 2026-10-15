@@ -18,3 +18,7 @@ local.properties
 .vercel
 .env*
 node_modules/
+.env*
+/.agents/
+/skills-lock.json
+/dist/
