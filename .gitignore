@@ -16,3 +16,5 @@
 local.properties
 
 .vercel
+.env*
+node_modules/

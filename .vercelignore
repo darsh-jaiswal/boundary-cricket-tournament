@@ -1,4 +1,13 @@
-**
-!vercel.json
-!web/
-!web/**
+.gradle/
+.idea/
+.git/
+.vercel/
+app/
+gradle/
+build/
+*.apk
+*.bat
+*.md
+local.properties
+.env*
+node_modules/

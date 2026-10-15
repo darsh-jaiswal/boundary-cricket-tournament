@@ -1,5 +1,1 @@
-{
-  "version": 2,
-  "builds": [{ "src": "web/**", "use": "@vercel/static" }],
-  "routes": [{ "src": "/(.*)", "dest": "/web/$1" }]
-}
+{"version":2,"outputDirectory":"web","functions":{"api/*.js":{"maxDuration":20}},"rewrites":[{"source":"/","destination":"/index.html"}]}
