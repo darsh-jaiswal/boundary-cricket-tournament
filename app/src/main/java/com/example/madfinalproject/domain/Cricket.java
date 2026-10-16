@@ -310,7 +310,7 @@ public final class Cricket {
                   || e.dismissal == Dismissal.HIT_WICKET
                   || e.dismissal == Dismissal.OBSTRUCTING);
       String dismissed = e.nonStrikerOut ? s.nonStriker : s.striker;
-      if ((e.completed % 2 == 1) ^ e.crossed) s.swap();
+      if (((e.completed + e.overthrow) % 2 == 1) ^ e.crossed) s.swap();
       if (r.lastMan && s.striker.isEmpty()) s.swap();
       if (dismissalAllowed) {
         s.wickets++;
@@ -372,6 +372,7 @@ public final class Cricket {
         tournament = "";
     public Rules rules = new Rules();
     public ArrayList<Innings> innings = new ArrayList<>();
+    public ArrayList<String> rosterA = new ArrayList<>(), rosterB = new ArrayList<>();
     public long updated = System.currentTimeMillis();
     public int revision;
 
@@ -600,6 +601,12 @@ public final class Cricket {
     }
     for (Match m : matches) {
       if (!m.tournament.equals(t.id) || m.innings.size() != 2 || !m.state().closed) continue;
+      if (t.format == Format.GROUPS) {
+        boolean groupMatch = false;
+        for (Fixture fixture : t.fixtures)
+          if (fixture.round.startsWith("Group") && fixture.matchId.equals(m.id)) groupMatch = true;
+        if (!groupMatch) continue;
+      }
       Row a = rows.get(m.teamA), b = rows.get(m.teamB);
       if (a == null || b == null) continue;
       State x = m.innings.get(0).state(m.rules), y = m.state();

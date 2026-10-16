@@ -53,16 +53,33 @@ public class GroundToolsDeviceTest {
       onView(withText("Start rolling camera")).perform(click());
       Thread.sleep(10500);
       onView(withText("Resume camera")).perform(click());
-      onView(withText("Check run-out / no-ball")).perform(click());
-      File[] found = null;
-      for (int i = 0; i < 60; i++) {
-        found =
-            c.getCacheDir().listFiles(f -> f.getName().startsWith("review-") && f.length() > 500);
-        if (found != null && found.length > 0) break;
+      scenario.onActivity(activity -> activity.findViewById(R.id.check_replay).performClick());
+      File[] found = new File[1];
+      for (int i = 0; i < 100; i++) {
+        scenario.onActivity(
+            a -> {
+              try {
+                java.lang.reflect.Field f = StumpCamActivity.class.getDeclaredField("lastReplay");
+                f.setAccessible(true);
+                found[0] = (File) f.get(a);
+              } catch (Exception ignored) {
+              }
+            });
+        if (found[0] != null) break;
         Thread.sleep(250);
       }
+      scenario.onActivity(
+          a -> {
+            try {
+              java.lang.reflect.Field f = StumpCamActivity.class.getDeclaredField("status");
+              f.setAccessible(true);
+              android.util.Log.i(
+                  "BoundaryReplayTest", ((android.widget.TextView) f.get(a)).getText().toString());
+            } catch (Exception ignored) {
+            }
+          });
       assertNotNull(found);
-      assertTrue("No exported replay clip", found.length > 0);
+      assertNotNull("No finalized replay clip", found[0]);
       MediaMetadataRetriever metadata = new MediaMetadataRetriever();
       try {
         metadata.setDataSource(found[0].getAbsolutePath());

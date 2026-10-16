@@ -1,0 +1,5 @@
+<resources>
+    <item name="start_camera" type="id" />
+    <item name="check_replay" type="id" />
+    <item name="resume_camera" type="id" />
+</resources>

@@ -49,6 +49,15 @@ public final class ReplayBuffer {
           if (track < 0) continue;
           MediaFormat format = extractor.getTrackFormat(track);
           if (!started) {
+            MediaMetadataRetriever metadata = new MediaMetadataRetriever();
+            try {
+              metadata.setDataSource(segments.get(index).getAbsolutePath());
+              String rotation =
+                  metadata.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_ROTATION);
+              if (rotation != null) muxer.setOrientationHint(Integer.parseInt(rotation));
+            } finally {
+              metadata.release();
+            }
             outputTrack = muxer.addTrack(format);
             muxer.start();
             started = true;

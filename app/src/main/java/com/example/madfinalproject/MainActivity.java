@@ -102,11 +102,14 @@ public class MainActivity extends AppCompatActivity {
   }
 
   private void message(String title, String s) {
-    new AlertDialog.Builder(this)
-        .setTitle(title)
-        .setMessage(s)
-        .setPositiveButton("OK", null)
-        .show();
+    AlertDialog dialog =
+        new AlertDialog.Builder(this)
+            .setTitle(title)
+            .setMessage(s)
+            .setPositiveButton("OK", null)
+            .show();
+    TextView message = dialog.findViewById(android.R.id.message);
+    if (message != null) message.setTextIsSelectable(true);
   }
 
   private void gap() {
@@ -266,6 +269,10 @@ public class MainActivity extends AppCompatActivity {
         () -> {
           if (writable()) matchSetup(null, null);
         });
+    action(
+        hero,
+        "Browse public live matches",
+        () -> startActivity(new Intent(this, SpectatorActivity.class)));
     for (Match m : repo.matches()) {
       State s = m.state();
       LinearLayout c =
@@ -579,6 +586,8 @@ public class MainActivity extends AppCompatActivity {
           if (ta.players.size() < 2 || tb.players.size() < 2)
             throw new IllegalArgumentException("Each team needs at least two named players.");
           Match m = new Match(ta.name, tb.name);
+          m.rosterA.addAll(ta.players);
+          m.rosterB.addAll(tb.players);
           m.venue = val(venue);
           m.scorer = val(scorer);
           m.umpire = val(umpire);
@@ -662,10 +671,13 @@ public class MainActivity extends AppCompatActivity {
                     : "Extras (excluding automatic penalty)",
                 "" + runs,
                 true),
-        physical =
-            field(box, "Completed running runs (for strike rotation)", "" + (runs % 2), true),
+        physical = field(box, "Runs completed before any overthrow", "" + (runs % 2), true),
         over = field(box, "Overthrow runs", "0", true);
     CheckBox boundary = check(box, "Boundary (four or six)", runs == 4 || runs == 6);
+    EditText noBallExtras =
+        extra == Extra.NO_BALL
+            ? field(box, "Additional no-ball extras (not off bat)", "0", true)
+            : null;
     Spinner zone =
         spinner(
             box,
@@ -690,6 +702,7 @@ public class MainActivity extends AppCompatActivity {
           e.extra = extra;
           if (extra == Extra.NONE || extra == Extra.NO_BALL) e.bat = num(bat);
           else e.extras = num(bat);
+          if (noBallExtras != null) e.extras = num(noBallExtras);
           e.completed = num(physical);
           e.overthrow = num(over);
           e.boundary = boundary.isChecked();
@@ -723,6 +736,10 @@ public class MainActivity extends AppCompatActivity {
   }
 
   private String[] squad(String team) {
+    if (match != null) {
+      java.util.List<String> saved = team.equals(match.teamA) ? match.rosterA : match.rosterB;
+      if (saved != null && !saved.isEmpty()) return saved.toArray(new String[0]);
+    }
     for (Team t : repo.teams()) if (t.name.equals(team)) return t.players.toArray(new String[0]);
     return new String[] {"Player"};
   }
@@ -802,6 +819,8 @@ public class MainActivity extends AppCompatActivity {
                   "Bowled", "Caught", "LBW", "Run out", "Stumped", "Hit wicket", "Obstructing"
                 }),
         incoming = spinner(box, "Incoming batter", available());
+    Spinner delivery =
+        spinner(box, "Delivery call", new String[] {"Legal delivery", "Wide", "No ball"});
     CheckBox non = check(box, "Non-striker dismissed", false),
         cross = check(box, "Crossed on incomplete run", false);
     EditText completed = field(box, "Runs completed", "0", true),
@@ -818,6 +837,14 @@ public class MainActivity extends AppCompatActivity {
           e.crossed = cross.isChecked();
           e.bat = num(completed);
           e.completed = num(completed);
+          e.extra =
+              delivery.getSelectedItemPosition() == 1
+                  ? Extra.WIDE
+                  : delivery.getSelectedItemPosition() == 2 ? Extra.NO_BALL : Extra.NONE;
+          if (e.extra == Extra.WIDE) {
+            e.extras = e.bat;
+            e.bat = 0;
+          }
           e.fielder = val(fielder);
           record(e);
         });
@@ -1387,6 +1414,27 @@ public class MainActivity extends AppCompatActivity {
           Publication.sync(this, repo);
           Toast.makeText(this, "Sync requested", Toast.LENGTH_SHORT).show();
         });
+    action(sync, "Recover full cloud match", this::recoverCloud);
+    action(
+        sync,
+        "Show match recovery code",
+        () -> {
+          if (!writable() || match == null) return;
+          String key = getSharedPreferences("publication", 0).getString("key-" + match.id, "");
+          if (key.isEmpty()) {
+            message(
+                "Publish first", "Score or publish this match before creating a recovery code.");
+            return;
+          }
+          message(
+              "Keep this code private",
+              match.id
+                  + ":"
+                  + key
+                  + "\n\n"
+                  + "This code gives full scoring access to this match. Keep it with the assigned"
+                  + " official.");
+        });
     action(
         sync,
         "Lock official controls",
@@ -1404,6 +1452,128 @@ public class MainActivity extends AppCompatActivity {
                 new Intent(
                     Intent.ACTION_VIEW,
                     Uri.parse("https://boundary-cricket-tournament.vercel.app/"))));
+  }
+
+  private void recoverCloud() {
+    if (!writable()) return;
+    LinearLayout box = form();
+    EditText code = field(box, "Private recovery code (match ID:authority)", "", false);
+    if (match != null) {
+      String key = getSharedPreferences("publication", 0).getString("key-" + match.id, "");
+      if (!key.isEmpty()) code.setText(match.id + ":" + key);
+    }
+    dialog(
+        "Recover complete match",
+        box,
+        "Fetch encrypted journal",
+        () -> {
+          String[] parts = val(code).split(":", 2);
+          if (parts.length != 2 || !parts[0].matches("[a-fA-F0-9-]{36}") || parts[1].length() < 50)
+            throw new IllegalArgumentException("Enter a complete private recovery code.");
+          String id = parts[0], authority = parts[1];
+          new Thread(
+                  () -> {
+                    java.net.HttpURLConnection connection = null;
+                    try {
+                      connection =
+                          (java.net.HttpURLConnection)
+                              new java.net.URL(
+                                      "https://boundary-cricket-tournament.vercel.app/api/matches?id="
+                                          + id
+                                          + "&journal=1")
+                                  .openConnection();
+                      connection.setRequestProperty("Authorization", "Bearer " + authority);
+                      connection.setConnectTimeout(12000);
+                      connection.setReadTimeout(12000);
+                      if (connection.getResponseCode() != 200)
+                        throw new java.io.IOException(
+                            "The server could not authorize this recovery code.");
+                      java.io.ByteArrayOutputStream bytes = new java.io.ByteArrayOutputStream();
+                      try (java.io.InputStream in = connection.getInputStream()) {
+                        byte[] data = new byte[8192];
+                        int n;
+                        while ((n = in.read(data)) > 0) bytes.write(data, 0, n);
+                      }
+                      org.json.JSONObject response =
+                          new org.json.JSONObject(bytes.toString("UTF-8"));
+                      Match restored =
+                          com.example.madfinalproject.data.JournalCodec.decode(
+                              response.getString("journal"), authority);
+                      if (!restored.id.equals(id))
+                        throw new java.io.IOException("Recovery journal identity does not match.");
+                      runOnUiThread(
+                          () -> {
+                            if (isFinishing() || isDestroyed()) return;
+                            for (Match local : repo.matches())
+                              if (local.id.equals(id) && local.revision > restored.revision) {
+                                message(
+                                    "Newer local edits exist",
+                                    "Your device has a newer match revision. Publish pending"
+                                        + " changes before recovering.");
+                                return;
+                              }
+                            new AlertDialog.Builder(this)
+                                .setTitle("Restore complete match?")
+                                .setMessage(
+                                    restored.name
+                                        + "\nRevision "
+                                        + restored.revision
+                                        + " · All innings, rules and delivery events will be"
+                                        + " restored.")
+                                .setNegativeButton("Cancel", null)
+                                .setPositiveButton(
+                                    "Restore",
+                                    (d, w) ->
+                                        guard(
+                                            () -> {
+                                              if (!getSharedPreferences("publication", 0)
+                                                  .edit()
+                                                  .putString("key-" + id, authority)
+                                                  .commit())
+                                                throw new IllegalStateException(
+                                                    "Could not save recovery authority");
+                                              android.database.sqlite.SQLiteDatabase database =
+                                                  repo.getWritableDatabase();
+                                              database.beginTransaction();
+                                              try {
+                                                for (String team :
+                                                    new String[] {restored.teamA, restored.teamB}) {
+                                                  boolean exists = false;
+                                                  for (Team local : repo.teams())
+                                                    if (local.name.equals(team)) exists = true;
+                                                  if (!exists) {
+                                                    Team recovered = new Team(team);
+                                                    java.util.List<String> players =
+                                                        team.equals(restored.teamA)
+                                                            ? restored.rosterA
+                                                            : restored.rosterB;
+                                                    if (players != null)
+                                                      recovered.players.addAll(players);
+                                                    repo.save(recovered);
+                                                  }
+                                                }
+                                                repo.save(restored);
+                                                database.setTransactionSuccessful();
+                                              } finally {
+                                                database.endTransaction();
+                                              }
+                                              open(restored);
+                                            }))
+                                .show();
+                          });
+                    } catch (Exception e) {
+                      runOnUiThread(
+                          () -> {
+                            if (!isFinishing() && !isDestroyed())
+                              message("Recovery unavailable", e.getMessage());
+                          });
+                    } finally {
+                      if (connection != null) connection.disconnect();
+                    }
+                  },
+                  "cloud-recovery")
+              .start();
+        });
   }
 
   private String tactic() {

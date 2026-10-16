@@ -40,21 +40,9 @@ public class StumpCamActivity extends AppCompatActivity {
     box.setOrientation(1);
     box.setPadding(20, 40, 20, 20);
     setContentView(box);
+    UiInsets.apply(box);
     try {
-      replayServer =
-          new ReplayServer(
-              () ->
-                  runOnUiThread(
-                      () -> {
-                        if (recording != null) {
-                          reviewRequested = true;
-                          running = false;
-                          finalizing = true;
-                          handler.removeCallbacksAndMessages(null);
-                          recording.stop();
-                          recording = null;
-                        }
-                      }));
+      replayServer = new ReplayServer(() -> runOnUiThread(this::requestReplay));
     } catch (Exception ignored) {
     }
     TextView link = new TextView(this);
@@ -70,6 +58,7 @@ public class StumpCamActivity extends AppCompatActivity {
     replay.setVisibility(android.view.View.GONE);
     box.addView(replay, new LinearLayout.LayoutParams(-1, 0, 1));
     Button start = new Button(this);
+    start.setId(R.id.start_camera);
     start.setText("Start rolling camera");
     box.addView(start);
     start.setOnClickListener(
@@ -79,20 +68,12 @@ public class StumpCamActivity extends AppCompatActivity {
           else startCamera();
         });
     Button check = new Button(this);
+    check.setId(R.id.check_replay);
     check.setText("Check run-out / no-ball");
     box.addView(check);
-    check.setOnClickListener(
-        v -> {
-          if (recording != null) {
-            reviewRequested = true;
-            running = false;
-            finalizing = true;
-            handler.removeCallbacksAndMessages(null);
-            recording.stop();
-            recording = null;
-          } else status.setText("Start recording before requesting a replay.");
-        });
+    check.setOnClickListener(v -> requestReplay());
     Button resume = new Button(this);
+    resume.setId(R.id.resume_camera);
     resume.setText("Resume camera");
     box.addView(resume);
     resume.setOnClickListener(
@@ -108,6 +89,31 @@ public class StumpCamActivity extends AppCompatActivity {
         });
   }
 
+  private void requestReplay() {
+    android.util.Log.i(
+        "BoundaryReplay",
+        "Review requested; recording="
+            + (recording != null)
+            + ", finalizing="
+            + finalizing
+            + ", segments="
+            + segments.size());
+    handler.removeCallbacksAndMessages(null);
+    reviewRequested = true;
+    running = false;
+    if (recording != null) {
+      finalizing = true;
+      recording.stop();
+      recording = null;
+    } else if (!finalizing && !segments.isEmpty()) {
+      reviewRequested = false;
+      review(segments.getLast());
+    } else if (!finalizing) {
+      reviewRequested = false;
+      status.setText("Start recording before requesting a replay.");
+    } else status.setText("Preparing latest replay…");
+  }
+
   private void startCamera() {
     if (running || recording != null || finalizing) return;
     ListenableFuture<ProcessCameraProvider> future = ProcessCameraProvider.getInstance(this);
@@ -119,13 +125,19 @@ public class StumpCamActivity extends AppCompatActivity {
             Preview p = new Preview.Builder().build();
             p.setSurfaceProvider(preview.getSurfaceProvider());
             Recorder recorder =
-                new Recorder.Builder().setQualitySelector(QualitySelector.fromOrderedList(java.util.Arrays.asList(Quality.SD,Quality.HD,Quality.FHD,Quality.LOWEST))).build();
+                new Recorder.Builder()
+                    .setQualitySelector(
+                        QualitySelector.fromOrderedList(
+                            java.util.Arrays.asList(
+                                Quality.SD, Quality.HD, Quality.FHD, Quality.LOWEST)))
+                    .build();
             capture = VideoCapture.withOutput(recorder);
             provider.bindToLifecycle(this, CameraSelector.DEFAULT_BACK_CAMERA, p, capture);
             running = true;
             segment();
           } catch (Exception e) {
-            capture=null;running=false;
+            capture = null;
+            running = false;
             status.setText("Camera unavailable: " + e.getMessage());
           }
         },
@@ -145,17 +157,22 @@ public class StumpCamActivity extends AppCompatActivity {
                 event -> {
                   if (event instanceof VideoRecordEvent.Start) {
                     status.setText("Recording rolling segments · latest 8–12 seconds retained");
-                    handler.postDelayed(
-                        () -> {
-                          if (recording != null && running) {
-                            finalizing = true;
-                            recording.stop();
-                            recording = null;
-                          }
-                        },
-                        4000);
+                  }
+                  if (event instanceof VideoRecordEvent.Status
+                      && event.getRecordingStats().getRecordedDurationNanos() >= 4_000_000_000L
+                      && recording != null
+                      && running) {
+                    finalizing = true;
+                    recording.stop();
+                    recording = null;
                   }
                   if (event instanceof VideoRecordEvent.Finalize) {
+                    android.util.Log.i(
+                        "BoundaryReplay",
+                        "Segment finalized; reviewRequested="
+                            + reviewRequested
+                            + ", running="
+                            + running);
                     finalizing = false;
                     recording = null;
                     if (!alive) {
@@ -165,7 +182,7 @@ public class StumpCamActivity extends AppCompatActivity {
                     VideoRecordEvent.Finalize end = (VideoRecordEvent.Finalize) event;
                     if (!end.hasError()) {
                       segments.add(destination);
-                      while (segments.size() > 3) {
+                      while (segments.size() > 2) {
                         File old = segments.removeFirst();
                         old.delete();
                       }
@@ -174,8 +191,15 @@ public class StumpCamActivity extends AppCompatActivity {
                         review(destination);
                       } else if (running) segment();
                     } else {
-                      running = false;
-                      status.setText("Recording stopped: camera error " + end.getError());
+                      destination.delete();
+                      if (reviewRequested && !segments.isEmpty()) {
+                        reviewRequested = false;
+                        running = false;
+                        review(segments.getLast());
+                      } else {
+                        running = false;
+                        status.setText("Recording stopped: camera error " + end.getError());
+                      }
                     }
                   }
                 });
@@ -198,6 +222,7 @@ public class StumpCamActivity extends AppCompatActivity {
                 if (old != null) old.delete();
                 runOnUiThread(() -> playReview(out));
               } catch (Exception e) {
+                android.util.Log.e("BoundaryReplay", "Replay export failed", e);
                 runOnUiThread(() -> status.setText("Could not prepare replay: " + e.getMessage()));
               }
             },

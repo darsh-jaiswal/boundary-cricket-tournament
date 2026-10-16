@@ -38,6 +38,7 @@ public class VoiceActivity extends AppCompatActivity implements RecognitionListe
     box.setOrientation(1);
     box.setBackgroundColor(0xfff3f6ef);
     setContentView(box);
+    UiInsets.apply(box);
     TextView h = new TextView(this);
     h.setText("Official voice scoring");
     h.setTextSize(28);

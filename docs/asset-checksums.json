@@ -1,14 +1,14 @@
-﻿[
+[
     {
-        "Hash":  "633C24321E06B1FE79FEAFA03EA16CBC0F8A286641E2DA3559BAC91BDB13BD96",
-        "Path":  "C:\\Users\\darsh\\AndroidStudioProjects\\MADFinalProject\\app\\libs\\sherpa-onnx-1.13.8.aar"
+        "sha256":  "633C24321E06B1FE79FEAFA03EA16CBC0F8A286641E2DA3559BAC91BDB13BD96",
+        "asset":  "app/libs/sherpa-onnx-1.13.8.aar"
     },
     {
-        "Hash":  "C59158379255AD66E161679CCA6AF8D52D51E389E3224AB7D7A7BAAE295C2DB5",
-        "Path":  "C:\\Users\\darsh\\AndroidStudioProjects\\MADFinalProject\\app\\src\\main\\assets\\speaker.onnx"
+        "sha256":  "C59158379255AD66E161679CCA6AF8D52D51E389E3224AB7D7A7BAAE295C2DB5",
+        "asset":  "app/src/main/assets/speaker.onnx"
     },
     {
-        "Hash":  "20663DCAC4D5CB783A579C54D98339344A688E4EC6E1B4A4B059FD1235454CC7",
-        "Path":  "C:\\Users\\darsh\\AndroidStudioProjects\\MADFinalProject\\app\\src\\main\\assets\\speech.zip"
+        "sha256":  "20663DCAC4D5CB783A579C54D98339344A688E4EC6E1B4A4B059FD1235454CC7",
+        "asset":  "app/src/main/assets/speech.zip"
     }
 ]

@@ -26,6 +26,7 @@ public class ScannerActivity extends AppCompatActivity {
     box.setPadding(24, 40, 24, 20);
     box.setBackgroundColor(0xfff3f6ef);
     setContentView(box);
+    UiInsets.apply(box);
     TextView title = new TextView(this);
     title.setText("Scorebook scanner");
     title.setTextSize(28);

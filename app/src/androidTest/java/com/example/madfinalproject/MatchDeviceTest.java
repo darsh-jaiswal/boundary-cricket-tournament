@@ -60,7 +60,9 @@ public class MatchDeviceTest {
             "id=? OR id=? OR id=?",
             new String[] {match.id, findTeam("Device Test A"), findTeam("Device Test B")});
     db.getWritableDatabase().delete("outbox", "id=?", new String[] {match.id});
-    db.close();context.getSharedPreferences("official-access",0).edit().clear().commit();OfficialAccess.lock();
+    db.close();
+    context.getSharedPreferences("official-access", 0).edit().clear().commit();
+    OfficialAccess.lock();
     context.getSharedPreferences("publication", 0).edit().putBoolean("paused", false).commit();
   }
 
