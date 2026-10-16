@@ -4,7 +4,7 @@ Native Android application written in Java for local, college, turf and club cri
 
 - Spectator site: https://boundary-cricket-tournament.vercel.app/
 - Source: https://github.com/darsh-jaiswal/boundary-cricket-tournament
-- Install on a modern physical Android phone: `app/build/outputs/apk/debug/app-arm64-v8a-debug.apk`.
+- [Download the signed Android APK](https://github.com/darsh-jaiswal/boundary-cricket-tournament/releases/latest/download/Boundary-Android-arm64.apk) for a modern physical Android phone.
 - Emulator: `app/build/outputs/apk/debug/app-x86_64-debug.apk`.
 - Universal build: `app/build/outputs/apk/debug/app-universal-debug.apk`.
 
@@ -44,7 +44,7 @@ The win model, captain suggestions, commentary and match narrative are local alg
 
 Roles are local to the scoring device, not a distributed account/organization service. Scorer and umpire assignments are recorded names. There is no email login or distributed organization account service. Scoring authority can be transferred using the private match recovery code. Public snapshots are published alongside a separately encrypted complete match journal. Tools → Recover full cloud match requires the private recovery code. Recovery restores rules, all deliveries and both squads. Keep that code private; it grants scoring authority. Voice enrollment remains on this phone and is excluded from OS backup.
 
-The APK is signed with the Android development key for direct installation and college evaluation. Play Store publication and an owner-controlled release signing key are separate work.
+The published APK uses the project's private release signing certificate for direct installation. It is not published on the Play Store. The local `signing/` folder contains the keystore and its password properties and is excluded from Git. Back up that folder securely: future updates require the same certificate. If an earlier debug build is installed, export its private recovery code before uninstalling it to install the release build; Android does not allow replacement across different certificates.
 
 ## Architecture
 
@@ -56,6 +56,7 @@ Schema migration is intentionally explicit: the early SharedPreferences starter 
 
 ```powershell
 .\gradlew.bat :app:assembleDebug
+.\gradlew.bat :app:assembleRelease
 .\gradlew.bat :app:testDebugUnitTest
 .\gradlew.bat :app:connectedDebugAndroidTest
 npm ci
@@ -63,5 +64,7 @@ vercel deploy --prod --yes
 ```
 
 Device tests require an emulator or connected phone. The publication verification script needs a development `DATABASE_URL`; obtain it using `vercel env pull .env.local --yes`, then run `node --env-file=.env.local scripts/verify-publication.mjs`. It creates one random fixture and deletes only that fixture afterward. Environment files and the local Vercel binding are ignored by Git.
+
+Release signing loads `signing/release.properties` with `storeFile`, `storePassword`, `keyAlias`, and `keyPassword`. Without that local file, release builds are unsigned. Signed phone output is `app/build/outputs/apk/release/app-arm64-v8a-release.apk`.
 
 See [third-party notices](docs/THIRD_PARTY_NOTICES.md) for bundled speech assets and SDK references.

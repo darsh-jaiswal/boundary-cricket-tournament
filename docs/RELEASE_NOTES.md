@@ -6,7 +6,7 @@ Start in Teams, register squads, then create a match from Home. The first editin
 
 Included: tournament schedules and progression, local SQLite scoring, event replay and history corrections, complete encrypted cloud-journal recovery, public live scorecards, confirmed voice scoring and speaker enrollment, PA announcements, player statistics, reviewed scorebook OCR/import, local field radar, rain/time target estimate, and rolling camera review with same-Wi-Fi pairing.
 
-The release is signed for direct installation with the Android development certificate. It is not a Play Store release. Crowd-noise voice accuracy and two-phone ground use still need real-device field evaluation. Win/tactical calculations and rain targets use local statistical heuristics; the target calculation is not official DLS. Camera uses bounded cache segments and keyframe padding rather than an exact eight-second RAM buffer. The official makes the replay decision.
+The release is signed for direct installation with this project's private release certificate. It is not a Play Store release. Crowd-noise voice accuracy and two-phone ground use still need real-device field evaluation. Win/tactical calculations and rain targets use local statistical heuristics; the target calculation is not official DLS. Camera uses bounded cache segments and keyframe padding rather than an exact eight-second RAM buffer. The official makes the replay decision.
 
 Spectator website: https://boundary-cricket-tournament.vercel.app/
 
