@@ -1,13 +1,11 @@
 import { neon } from '@neondatabase/serverless';
 import { createHash, timingSafeEqual } from 'node:crypto';
-let initialized;
+let connection;
 const hash = key => createHash('sha256').update(key).digest('hex');
 async function database() {
   if (!process.env.DATABASE_URL) throw new Error('Database is not configured');
-  const sql = neon(process.env.DATABASE_URL);
-  if (!initialized) initialized = (async()=>{await sql`CREATE TABLE IF NOT EXISTS cricket_matches (id TEXT PRIMARY KEY, owner_hash TEXT NOT NULL, revision INTEGER NOT NULL, data JSONB NOT NULL, updated TIMESTAMPTZ DEFAULT now())`;await sql`ALTER TABLE cricket_matches ADD COLUMN IF NOT EXISTS private_journal TEXT`;})().catch(error => { initialized = undefined; throw error; });
-  await initialized;
-  return sql;
+  connection ??= neon(process.env.DATABASE_URL);
+  return connection;
 }
 export default async function handler(req, res) {
   res.setHeader('Cache-Control', 'no-store');
@@ -22,7 +20,7 @@ export default async function handler(req, res) {
         if(!rows.length)return res.status(403).json({error:'Scoring authority required'});
         return res.status(200).json({id,revision:rows[0].revision,journal:rows[0].private_journal});
       }
-      const rows = typeof id === 'string' ? await sql`SELECT data FROM cricket_matches WHERE id=${id}` : await sql`SELECT data FROM cricket_matches ORDER BY updated DESC LIMIT 50`;
+      const rows = typeof id === 'string' ? await sql`SELECT data FROM cricket_matches WHERE id=${id}` : await sql`SELECT data FROM cricket_matches ORDER BY updated DESC, id DESC LIMIT 50`;
       return res.status(200).json(typeof id === 'string' ? (rows[0]?.data ?? null) : rows.map(row => row.data));
     }
     if(req.method==='DELETE') {

@@ -12,7 +12,7 @@
                          "destination":  "/index.html"
                      }
                  ],
-    "buildCommand":  "node scripts/prepare-download.mjs",
+    "buildCommand":  "npm run db:migrate \u0026\u0026 node scripts/prepare-download.mjs",
     "headers":  [
                     {
                         "headers":  [
