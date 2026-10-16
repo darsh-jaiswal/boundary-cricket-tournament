@@ -4,7 +4,7 @@ Native Android application written in Java for local, college, turf and club cri
 
 - Spectator site: https://boundary-cricket-tournament.vercel.app/
 - Source: https://github.com/darsh-jaiswal/boundary-cricket-tournament
-- [Download the signed Android APK](https://github.com/darsh-jaiswal/boundary-cricket-tournament/releases/latest/download/Boundary-Android-arm64.apk) for a modern physical Android phone.
+- [Download the signed Android APK](https://boundary-cricket-tournament.vercel.app/downloads/Boundary-Android-arm64.apk?v=1.0.1) for a modern physical Android phone.
 - Emulator: `app/build/outputs/apk/debug/app-x86_64-debug.apk`.
 - Universal build: `app/build/outputs/apk/debug/app-universal-debug.apk`.
 
