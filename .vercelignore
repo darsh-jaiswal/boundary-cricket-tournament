@@ -11,3 +11,7 @@ build/
 local.properties
 .env*
 node_modules/
+signing/
+dist/
+.agents/
+*.pdf
