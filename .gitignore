@@ -24,3 +24,7 @@ node_modules/
 /dist/
 /signing/
 /web/downloads/
+/cricheroes*.apk
+/references/cricheroes/analysis/
+/reference images/
+/.codex-remote-attachments/

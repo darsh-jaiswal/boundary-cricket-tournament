@@ -23,8 +23,16 @@
         <activity android:name=".VoiceActivity" android:exported="false" />
         <activity android:name=".SpectatorActivity" android:exported="false" />
         <activity android:name=".StumpCamActivity" android:exported="false" />
+        <activity android:name=".NrrPlannerActivity" android:exported="false" />
+        <activity android:name=".PlayerProfileActivity" android:exported="false" />
+        <activity android:name=".PlayerDirectoryActivity" android:exported="false" android:theme="@style/Theme.Boundary.Reference" />
+        <activity android:name=".AttendanceActivity" android:exported="false" />
+        <activity android:name=".MatchAwardsActivity" android:exported="false" />
+        <activity android:name=".LiveStreamActivity" android:exported="false" android:screenOrientation="portrait" />
+        <activity android:name=".MatchAnalysisActivity" android:exported="false" />
         <activity
             android:name=".MainActivity"
+            android:theme="@style/Theme.Boundary.Reference"
             android:exported="true"
             android:windowSoftInputMode="adjustResize">
             <intent-filter>

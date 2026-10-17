@@ -21,8 +21,8 @@ android {
         applicationId = "com.example.madfinalproject"
         minSdk = 24
         targetSdk = 36
-        versionCode = 2
-        versionName = "1.0.1"
+        versionCode = 3
+        versionName = "1.0.2"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -67,6 +67,7 @@ android {
 }
 
 dependencies {
+    implementation("com.github.pedroSG94.RootEncoder:library:2.8.1")
     implementation("com.alphacephei:vosk-android:0.3.47@aar")
     implementation("net.java.dev.jna:jna:5.13.0@aar")
     implementation(files("libs/sherpa-onnx-1.13.8.aar"))

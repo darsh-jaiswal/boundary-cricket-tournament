@@ -19,9 +19,11 @@ dependencyResolutionManagement {
     repositories {
         google()
         mavenCentral()
+        maven("https://jitpack.io") {
+            content { includeGroup("com.github.pedroSG94.RootEncoder") }
+        }
     }
 }
 
 rootProject.name = "MADFinalProject"
 include(":app")
- 

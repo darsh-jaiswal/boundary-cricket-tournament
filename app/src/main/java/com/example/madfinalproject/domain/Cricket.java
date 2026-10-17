@@ -188,6 +188,29 @@ public final class Cricket {
     }
   }
 
+  public static final class Progress {
+    public final int legal, runs, wickets, legalBefore, runsBefore, wicketsBefore;
+    public final String strikerBefore, nonStrikerBefore, bowler, fielder;
+    public final Dismissal dismissal;
+    public final Extra extra;
+
+    private Progress(State state, int legalBefore, int runsBefore, int wicketsBefore,
+        String strikerBefore, String nonStrikerBefore, String bowler, Event event) {
+      legal = state.legal;
+      runs = state.runs;
+      wickets = state.wickets;
+      this.legalBefore = legalBefore;
+      this.runsBefore = runsBefore;
+      this.wicketsBefore = wicketsBefore;
+      this.strikerBefore = strikerBefore;
+      this.nonStrikerBefore = nonStrikerBefore;
+      this.bowler = bowler;
+      fielder = event.fielder;
+      dismissal = event.dismissal;
+      extra = event.extra;
+    }
+  }
+
   public static final class Innings implements Serializable {
     private static final long serialVersionUID = 1L;
     public String battingTeam, bowlingTeam, opener, partner;
@@ -207,6 +230,17 @@ public final class Cricket {
     }
 
     public State state(Rules r, int initialTarget) {
+      return replay(r, initialTarget, null);
+    }
+
+    public List<Progress> progress(Rules r, int initialTarget) {
+      List<Progress> points = new ArrayList<>();
+      replay(r, initialTarget, points::add);
+      return points;
+    }
+
+    private State replay(Rules r, int initialTarget,
+        java.util.function.Consumer<Progress> progress) {
       State s = new State();
       s.striker = opener;
       s.nonStriker = partner;
@@ -223,6 +257,9 @@ public final class Cricket {
           s.commentary.add("Retained after innings completion: " + e.label());
           continue;
         }
+        int legalBefore = s.legal, runsBefore = s.runs, wicketsBefore = s.wickets;
+        String strikerBefore = s.striker, nonStrikerBefore = s.nonStriker;
+        String effectiveBowler = e.bowler.isEmpty() ? s.bowler : e.bowler;
         switch (e.kind) {
           case BOWLER:
             s.bowler = e.player;
@@ -259,6 +296,9 @@ public final class Cricket {
             (s.target > 0 && s.runs >= s.target)
                 || s.legal >= s.maxBalls
                 || s.wickets >= r.players - (r.lastMan ? 0 : 1);
+        if (progress != null && e.kind == Kind.BALL)
+          progress.accept(new Progress(s, legalBefore, runsBefore, wicketsBefore,
+              strikerBefore, nonStrikerBefore, effectiveBowler, e));
       }
       s.needsBatter = s.striker.isEmpty() || s.nonStriker.isEmpty();
       return s;

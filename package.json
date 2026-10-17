@@ -1,12 +1,13 @@
 {
-    "name":  "boundary-cricket",
-    "version":  "1.0.0",
-    "private":  true,
-    "type":  "module",
-    "dependencies":  {
-                         "@neondatabase/serverless":  "^1.0.2"
-                     },
-    "scripts":  {
-                    "db:migrate":  "node scripts/migrate-database.mjs"
-                }
+    "name": "boundary-cricket",
+    "version": "1.0.0",
+    "private": true,
+    "type": "module",
+    "dependencies": {
+        "@clerk/backend": "^3.25.0",
+        "@neondatabase/serverless": "^1.0.2"
+    },
+    "scripts": {
+        "db:migrate": "node scripts/migrate-database.mjs"
+    }
 }

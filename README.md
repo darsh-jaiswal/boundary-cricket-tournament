@@ -4,11 +4,18 @@ Native Android application written in Java for local, college, turf and club cri
 
 - Spectator site: https://boundary-cricket-tournament.vercel.app/
 - Source: https://github.com/darsh-jaiswal/boundary-cricket-tournament
-- [Download the signed Android APK](https://boundary-cricket-tournament.vercel.app/downloads/Boundary-Android-arm64.apk?v=1.0.1) for a modern physical Android phone.
+- [Download the signed Android APK](https://boundary-cricket-tournament.vercel.app/downloads/Boundary-Android-arm64.apk?v=1.0.2) for a modern physical Android phone.
 - Emulator: `app/build/outputs/apk/debug/app-x86_64-debug.apk`.
 - Universal build: `app/build/outputs/apk/debug/app-universal-debug.apk`.
 
 ## First use
+
+Version 1.0.2 adds player profiles and local rankings, match graphs and awards,
+NRR scenarios, squad availability, a dark navigation shell, and RTMP camera
+publishing. The web community is at `/community.html` and the OBS score graphic
+is at `/overlay.html?match=<id>`. See [release notes](docs/RELEASE_1.0.2.md) for
+verification limits and remaining features. Shop, merch, ads and paywalls are
+excluded; complete CricHeroes parity has not been reached.
 
 1. Open **Teams** and register two teams, entering player names separated by commas.
 2. Press **Create a match** on Home. The first editing action asks you to create a six-to-twelve digit official PIN. Repeat the action after unlocking.

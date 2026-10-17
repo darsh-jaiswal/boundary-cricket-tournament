@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Boundary broadcast scoreboard</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; background: transparent; color: #fff; font: 20px/1.4 system-ui, sans-serif; }
+    main { position: fixed; left: 3vw; right: 3vw; bottom: 4vh; max-width: 1100px; }
+    .scoreboard { background: #142a24; border-radius: 14px; overflow: hidden; box-shadow: 0 8px 28px #0005; }
+    .top { padding: 12px 22px; display: flex; flex-wrap: wrap; align-items: center; gap: 12px 26px; }
+    #team { font-weight: 750; max-width: 45%; overflow-wrap: anywhere; }
+    #total { color: #d0ed8c; font-size: clamp(26px, 4vw, 48px); font-weight: 800; white-space: nowrap; }
+    #overs { white-space: nowrap; }
+    .brand { margin-left: auto; letter-spacing: .15em; font-size: 13px; font-weight: 800; color: #d0ed8c; }
+    #situation { padding: 9px 22px; background: #147653; overflow-wrap: anywhere; }
+    #status { padding: 5px 22px; background: #0c1b16; font-size: 12px; color: #d0dfd3; }
+    .changed { animation: update .8s ease-out; }
+    @keyframes update { from { background: #38734e; } to { background: #142a24; } }
+    @media (prefers-reduced-motion: reduce) { .changed { animation: none; } }
+    @media (max-width: 600px) { #team { max-width: 100%; } .brand { display: none; } }
+  </style>
+</head>
+<body>
+  <main aria-label="Live cricket broadcast scoreboard">
+    <section class="scoreboard">
+      <div class="top" id="top">
+        <span id="team">Boundary cricket</span><span id="total">— / —</span>
+        <span id="overs">Waiting for score</span><span class="brand">BOUNDARY</span>
+      </div>
+      <div id="situation">Add ?match= followed by the published match ID to this URL.</div>
+      <div id="status" role="status">Public scoreboard · no scoring access required</div>
+    </section>
+  </main>
+  <script type="module" src="/overlay.js"></script>
+</body>
+</html>
