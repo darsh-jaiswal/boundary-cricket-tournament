@@ -60,6 +60,18 @@ public final class Repository extends SQLiteOpenHelper {
     save(t.id, "tournament", t);
   }
 
+  public synchronized void saveFixtureMatch(Cricket.Match match, Cricket.Tournament tournament) {
+    SQLiteDatabase db = getWritableDatabase();
+    db.beginTransaction();
+    try {
+      save(match);
+      save(tournament);
+      db.setTransactionSuccessful();
+    } finally {
+      db.endTransaction();
+    }
+  }
+
   public <T> List<T> list(String kind, Class<T> type) {
     ArrayList<T> result = new ArrayList<>();
     try (Cursor c =

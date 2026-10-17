@@ -346,6 +346,7 @@ public class MainActivity extends AppCompatActivity {
             (d, w) -> {
               role = rs[w];
               getPreferences(0).edit().putString("role", role).apply();
+              if (match != null && (role.equals("Scorer") || role.equals("Umpire"))) page = "Score";
               draw();
             })
         .show();
@@ -445,6 +446,17 @@ public class MainActivity extends AppCompatActivity {
         "Match centre · Saved on this phone",
         match.current().battingTeam,
         match.name + " · " + match.venue);
+    if (match.tossWinner != null && !match.tossWinner.isEmpty())
+      body.addView(text("Toss: " + match.tossWinner + " chose to "
+          + ("BOWL".equals(match.tossDecision) ? "bowl" : "bat"), 12, MUTED, false));
+    if (role.equals("Scorer") || role.equals("Umpire")) {
+      LinearLayout desk = card("OFFICIAL WORKSPACE · " + role.toUpperCase(Locale.ROOT),
+          match.name, "Scorer: " + (match.scorer.isEmpty() ? "Unassigned" : match.scorer)
+              + "   Umpire: " + (match.umpire.isEmpty() ? "Unassigned" : match.umpire));
+      action(desk, "🎙  Voice scoring · push to talk", this::voice);
+      desk.addView(text("Hold the microphone in the next screen, speak a command, then release."
+          + " Review the recognized words before applying.", 12, MUTED, false));
+    }
     LinearLayout board = new LinearLayout(this);
     board.setOrientation(1);
     board.setPadding(dp(20), dp(20), dp(20), dp(20));
@@ -477,6 +489,19 @@ public class MainActivity extends AppCompatActivity {
               true));
     body.addView(board);
     gap();
+    int initialTarget = match.activeIndex() == 1
+        ? match.innings.get(0).state(match.rules).runs + 1 : match.current().target;
+    List<Progress> deliveries = match.current().progress(match.rules, initialTarget);
+    if (!deliveries.isEmpty()) {
+      int first = Math.max(0, deliveries.size() - 6);
+      StringBuilder recentBalls = new StringBuilder();
+      for (int i = first; i < deliveries.size(); i++) {
+        if (recentBalls.length() > 0) recentBalls.append("   •   ");
+        recentBalls.append(deliveries.get(i).label);
+      }
+      body.addView(text("RECENT BALLS   " + recentBalls, 12, MUTED, true));
+      gap();
+    }
     {
       int p = Cricket.probability(s, match.rules);
       body.addView(text("Win estimate  " + p + "%", 12, GREEN, true));
@@ -683,7 +708,7 @@ public class MainActivity extends AppCompatActivity {
       return;
     }
     String[] names = ts.stream().map(t -> t.name).toArray(String[]::new);
-    Spinner a = spinner(box, "Batting first", names), b = spinner(box, "Bowling first", names);
+    Spinner a = spinner(box, "Team 1", names), b = spinner(box, "Team 2", names);
     b.setSelection(1);
     if (fixture != null) {
       for (int i = 0; i < names.length; i++) {
@@ -691,6 +716,9 @@ public class MainActivity extends AppCompatActivity {
         if (names[i].equals(fixture.b)) b.setSelection(i);
       }
     }
+    Spinner toss = spinner(box, "Toss winner", new String[] {"Not recorded", "Team 1", "Team 2"});
+    Spinner decision = spinner(box, "Toss decision", new String[] {"Bat first", "Bowl first"});
+    Spinner batting = spinner(box, "Batting first if toss is not recorded", new String[] {"Team 1", "Team 2"});
     EditText venue = field(box, "Ground / turf", "", false),
         scorer = field(box, "Scorer", "", false),
         umpire = field(box, "Umpire", "", false);
@@ -702,29 +730,86 @@ public class MainActivity extends AppCompatActivity {
           Team ta = ts.get(a.getSelectedItemPosition()), tb = ts.get(b.getSelectedItemPosition());
           if (ta.id.equals(tb.id))
             throw new IllegalArgumentException("Choose two different teams.");
+          if (fixture != null && !(ta.name.equals(fixture.a) && tb.name.equals(fixture.b)
+              || ta.name.equals(fixture.b) && tb.name.equals(fixture.a)))
+            throw new IllegalArgumentException("Choose the two scheduled fixture teams.");
           if (ta.players.size() < 2 || tb.players.size() < 2)
             throw new IllegalArgumentException("Each team needs at least two named players.");
-          Match m = new Match(ta.name, tb.name);
-          m.rosterA.addAll(ta.players);
-          m.rosterB.addAll(tb.players);
+          Team first = ta, second = tb;
+          if (toss.getSelectedItemPosition() > 0) {
+            boolean winnerIsFirst = toss.getSelectedItemPosition() == 1;
+            boolean winnerBats = decision.getSelectedItemPosition() == 0;
+            if (winnerIsFirst != winnerBats) { first = tb; second = ta; }
+          } else if (batting.getSelectedItemPosition() == 1) { first = tb; second = ta; }
+          Match m = new Match(first.name, second.name);
+          m.tossWinner = toss.getSelectedItemPosition() == 0 ? ""
+              : toss.getSelectedItemPosition() == 1 ? ta.name : tb.name;
+          m.tossDecision = m.tossWinner.isEmpty() ? ""
+              : decision.getSelectedItemPosition() == 0 ? "BAT" : "BOWL";
           m.venue = val(venue);
           m.scorer = val(scorer);
           m.umpire = val(umpire);
-          m.rules.players = Math.max(2, Math.min(ta.players.size(), tb.players.size()));
+          m.rules.players = Math.max(2, Math.min(first.players.size(), second.players.size()));
           m.rules.bowlerOvers = m.rules.overs;
-          m.innings.add(new Innings(ta.name, tb.name, ta.players.get(0), ta.players.get(1), 0));
           if (cup != null) m.tournament = cup.id;
           rules(
               m.rules,
               () -> {
-                repo.save(m);
-                if (fixture != null) {
-                  fixture.matchId = m.id;
-                  repo.save(cup);
-                }
-                open(m);
+                if (m.rules.players > Math.min(ta.players.size(), tb.players.size()))
+                  throw new IllegalArgumentException("Players per side exceeds a selected team squad.");
+                playingSquadSetup(m, ta, tb, cup, fixture);
               });
         });
+  }
+
+  private void playingSquadSetup(Match m, Team teamOne, Team teamTwo,
+      Tournament cup, Fixture fixture) {
+    Team first = m.teamA.equals(teamOne.name) ? teamOne : teamTwo;
+    Team second = m.teamB.equals(teamOne.name) ? teamOne : teamTwo;
+    choosePlayingSquad(first, m.rules.players, selectedFirst ->
+        choosePlayingSquad(second, m.rules.players, selectedSecond -> {
+          m.rosterA.addAll(selectedFirst);
+          m.rosterB.addAll(selectedSecond);
+          LinearLayout box = form();
+          String[] names = selectedFirst.toArray(new String[0]);
+          Spinner striker = spinner(box, "Opening striker", names);
+          Spinner partner = spinner(box, "Opening partner", names);
+          partner.setSelection(1);
+          dialog("Opening batters · " + first.name, box, "Start match", () -> {
+            String p = (String) striker.getSelectedItem(), q = (String) partner.getSelectedItem();
+            if (p.equals(q)) throw new IllegalArgumentException("Choose different openers.");
+            m.innings.add(new Innings(m.teamA, m.teamB, p, q, 0));
+            String oldFixtureMatchId = fixture == null ? "" : fixture.matchId;
+            try {
+              if (fixture == null) repo.save(m);
+              else {
+                fixture.matchId = m.id;
+                repo.saveFixtureMatch(m, cup);
+              }
+            } catch (RuntimeException error) {
+              if (fixture != null) fixture.matchId = oldFixtureMatchId;
+              m.innings.clear();
+              throw error;
+            }
+            open(m);
+          });
+        }));
+  }
+
+  private void choosePlayingSquad(Team team, int size, Consumer<List<String>> chosen) {
+    LinearLayout box = form();
+    box.addView(text("Select exactly " + size + " players for " + team.name + ".", 14, INK, true));
+    List<CheckBox> checks = new ArrayList<>();
+    for (int i = 0; i < team.players.size(); i++)
+      checks.add(check(box, team.players.get(i), i < size));
+    dialog("Playing squad · " + team.name, box, "Continue", () -> {
+      List<String> selected = new ArrayList<>();
+      for (int i = 0; i < checks.size(); i++)
+        if (checks.get(i).isChecked()) selected.add(team.players.get(i));
+      if (selected.size() != size)
+        throw new IllegalArgumentException("Select exactly " + size + " players.");
+      chosen.accept(selected);
+    });
   }
 
   private void rules(Rules r, Runnable saved) {
@@ -756,6 +841,9 @@ public class MainActivity extends AppCompatActivity {
           next.lastMan = last.isChecked();
           next.finalOverExtrasLegal = legal.isChecked();
           next.validate();
+          if (match != null && r == match.rules && match.rosterA.size() == r.players
+              && match.rosterB.size() == r.players && next.players != r.players)
+            throw new IllegalArgumentException("Playing squad size is fixed for this match.");
           r.ballsPerOver = next.ballsPerOver;
           r.overs = next.overs;
           r.players = next.players;
@@ -868,7 +956,8 @@ public class MainActivity extends AppCompatActivity {
     List<String> ps = new ArrayList<>();
     for (String p : squad(match.current().battingTeam)) {
       Batting b = s.batting.get(p);
-      if (!p.equals(s.striker) && !p.equals(s.nonStriker) && (b == null || !b.out)) ps.add(p);
+      if (!p.equals(s.striker) && !p.equals(s.nonStriker)
+          && (b == null || (!b.out && !b.retired))) ps.add(p);
     }
     if (ps.isEmpty()) ps.add("");
     return ps.toArray(new String[0]);
@@ -939,11 +1028,15 @@ public class MainActivity extends AppCompatActivity {
                 }),
         incoming = spinner(box, "Incoming batter", available());
     Spinner delivery =
-        spinner(box, "Delivery call", new String[] {"Legal delivery", "Wide", "No ball"});
+        spinner(box, "Delivery call", new String[] {"Legal delivery", "Wide", "No ball", "Bye", "Leg bye"});
     CheckBox non = check(box, "Non-striker dismissed", false),
         cross = check(box, "Crossed on incomplete run", false);
-    EditText completed = field(box, "Runs completed", "0", true),
-        fielder = field(box, "Fielder", "", false);
+    EditText completed = field(box, "Runs completed", "0", true);
+    String[] fielders = squad(match.current().bowlingTeam);
+    String[] options = new String[fielders.length + 1];
+    options[0] = "Not recorded";
+    System.arraycopy(fielders, 0, options, 1, fielders.length);
+    Spinner fielder = spinner(box, "Fielder", options);
     dialog(
         "Record wicket",
         box,
@@ -959,12 +1052,14 @@ public class MainActivity extends AppCompatActivity {
           e.extra =
               delivery.getSelectedItemPosition() == 1
                   ? Extra.WIDE
-                  : delivery.getSelectedItemPosition() == 2 ? Extra.NO_BALL : Extra.NONE;
-          if (e.extra == Extra.WIDE) {
+                  : delivery.getSelectedItemPosition() == 2 ? Extra.NO_BALL
+                  : delivery.getSelectedItemPosition() == 3 ? Extra.BYE
+                  : delivery.getSelectedItemPosition() == 4 ? Extra.LEG_BYE : Extra.NONE;
+          if (e.extra == Extra.WIDE || e.extra == Extra.BYE || e.extra == Extra.LEG_BYE) {
             e.extras = e.bat;
             e.bat = 0;
           }
-          e.fielder = val(fielder);
+          e.fielder = fielder.getSelectedItemPosition() == 0 ? "" : (String) fielder.getSelectedItem();
           record(e);
         });
   }
@@ -1765,9 +1860,9 @@ public class MainActivity extends AppCompatActivity {
       return;
     }
     if (!writable()) return;
-    startActivityForResult(
-        new Intent(this, VoiceActivity.class).putExtra("profile", match.id + "-" + match.scorer),
-        77);
+    String official = role.equals("Umpire") ? match.umpire : match.scorer;
+    startActivityForResult(new Intent(this, VoiceActivity.class)
+        .putExtra("profile", match.id + "-" + role + "-" + official), 77);
   }
 
   @Override
@@ -1780,6 +1875,7 @@ public class MainActivity extends AppCompatActivity {
   protected void onActivityResult(int req, int result, Intent data) {
     super.onActivityResult(req, result, data);
     if (req == 77 && result == RESULT_OK && data != null) {
+      if (!writable()) return;
       guard(() -> command(data.getStringExtra("command")));
       return;
     }

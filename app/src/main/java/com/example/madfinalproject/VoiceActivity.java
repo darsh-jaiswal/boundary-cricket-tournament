@@ -13,7 +13,7 @@ import com.k2fsa.sherpa.onnx.*;
 import java.io.*;
 import java.util.*;
 
-/** Enrolls three independent utterances and compares learned speaker embeddings locally. */
+/** Offline push-to-talk scoring with optional local speaker verification. */
 public class VoiceActivity extends AppCompatActivity implements RecognitionListener {
   private final java.util.concurrent.ExecutorService nativeQueue =
       java.util.concurrent.Executors.newSingleThreadExecutor();
@@ -25,6 +25,8 @@ public class VoiceActivity extends AppCompatActivity implements RecognitionListe
   private ParcelFileDescriptor input;
   private org.vosk.Model speechModel;
   private volatile boolean alive = true, busy;
+  private volatile boolean stopRequested, cancelRequested;
+  private volatile long captureId;
   private String profile;
   private final ArrayList<float[]> samples = new ArrayList<>();
 
@@ -36,44 +38,71 @@ public class VoiceActivity extends AppCompatActivity implements RecognitionListe
     LinearLayout box = new LinearLayout(this);
     box.setPadding(36, 70, 36, 36);
     box.setOrientation(1);
-    box.setBackgroundColor(0xfff3f6ef);
+    box.setBackgroundColor(0xff090909);
     setContentView(box);
     UiInsets.apply(box);
     TextView h = new TextView(this);
     h.setText("Official voice scoring");
     h.setTextSize(28);
+    h.setTextColor(0xfff1f1f1);
     box.addView(h);
     status = new TextView(this);
-    status.setText("Loading speaker model…");
+    status.setText("Loading offline speech model…");
+    status.setTextColor(0xffd0ed8c);
     box.addView(status);
     enroll = new Button(this);
     enroll.setText("Enroll official voice · 3 phrases");
     box.addView(enroll);
     command = new Button(this);
-    command.setText("Speak scoring command");
+    command.setText("Hold to talk · release to score");
+    command.setContentDescription("Hold to speak a scoring command. Accessibility activation records for five seconds.");
+    command.setMinHeight(140);
+    command.setTextColor(0xff031b1b);
+    command.setBackgroundTintList(android.content.res.ColorStateList.valueOf(0xff159a96));
     box.addView(command);
     CheckBox wake = new CheckBox(this);
     wake.setText("Require ‘Scorer’ or ‘Umpire’ wake word");
+    wake.setTextColor(0xfff1f1f1);
     wake.setChecked(getSharedPreferences("voice", 0).getBoolean("wake", false));
     wake.setOnCheckedChangeListener(
         (v, on) -> getSharedPreferences("voice", 0).edit().putBoolean("wake", on).apply());
     box.addView(wake);
     TextView note = new TextView(this);
     note.setText(
-        "Voice matching runs on this phone. No biometric system can promise perfect rejection in"
-            + " crowd noise. Keep confirmation enabled and use touch when conditions are poor.\n\n"
-            + "Command transcription runs offline on the same verified recording.");
+        "Push and hold to score. Short commands use the official PIN and confirmation."
+            + " For recordings of at least three seconds, an enrolled voice profile adds a local"
+            + " speaker check. Every command requires confirmation.\n\n"
+            + "Vosk transcribes speech offline on this phone; no recording is uploaded.");
+    note.setTextColor(0xffb1b1b1);
     box.addView(note);
     enroll.setOnClickListener(v -> capture(true));
-    command.setOnClickListener(v -> capture(false));
+    command.setOnClickListener(v -> capture(false, true));
+    command.setOnTouchListener((v, event) -> {
+      if (event.getActionMasked() == android.view.MotionEvent.ACTION_DOWN) {
+        if (checkSelfPermission(Manifest.permission.RECORD_AUDIO)
+            != PackageManager.PERMISSION_GRANTED) {
+          requestPermissions(new String[] {Manifest.permission.RECORD_AUDIO}, 62);
+          return true;
+        }
+        capture(false, false);
+        return true;
+      }
+      if (event.getActionMasked() == android.view.MotionEvent.ACTION_UP) {
+        stopRequested = true;
+        return true;
+      }
+      if (event.getActionMasked() == android.view.MotionEvent.ACTION_CANCEL) {
+        cancelRequested = true;
+        stopRequested = true;
+        return true;
+      }
+      return true;
+    });
     enroll.setEnabled(false);
     command.setEnabled(false);
     nativeQueue.execute(
         () -> {
           try {
-            SpeakerEmbeddingExtractorConfig config =
-                new SpeakerEmbeddingExtractorConfig("speaker.onnx", 2, false, "cpu");
-            extractor = new SpeakerEmbeddingExtractor(getAssets(), config);
             File speechDir = new File(getFilesDir(), "vosk-model-small-en-in-0.4");
             if (!new File(speechDir, ".complete").exists()) {
               try (java.util.zip.ZipInputStream zip =
@@ -99,18 +128,25 @@ public class VoiceActivity extends AppCompatActivity implements RecognitionListe
             }
             speechModel = new org.vosk.Model(speechDir.getAbsolutePath());
             new File(speechDir, ".complete").createNewFile();
+            try {
+              SpeakerEmbeddingExtractorConfig config =
+                  new SpeakerEmbeddingExtractorConfig("speaker.onnx", 2, false, "cpu");
+              extractor = new SpeakerEmbeddingExtractor(getAssets(), config);
+            } catch (Throwable ignored) {
+              extractor = null;
+            }
             runOnUiThread(
                 () -> {
                   if (!alive) return;
                   status.setText(
-                      hasProfile()
-                          ? "Official voice enrolled. Ready to listen."
-                          : "Enroll the designated official in a quiet place before scoring.");
-                  enroll.setEnabled(true);
+                      extractor == null ? "Offline voice scoring ready. Speaker matching unavailable."
+                          : hasProfile() ? "Voice profile ready. Hold to talk and release to score."
+                          : "Hold to talk and release to score. Optional voice enrollment is below.");
+                  enroll.setEnabled(extractor != null);
                   command.setEnabled(true);
                 });
           } catch (Throwable e) {
-            runOnUiThread(() -> status.setText("Speaker model could not load: " + e.getMessage()));
+            runOnUiThread(() -> status.setText("Offline speech model could not load: " + e.getMessage()));
           }
         });
   }
@@ -119,31 +155,45 @@ public class VoiceActivity extends AppCompatActivity implements RecognitionListe
     return getSharedPreferences("voice", 0).contains(profile);
   }
 
+  @Override
+  public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] results) {
+    super.onRequestPermissionsResult(requestCode, permissions, results);
+    if (requestCode == 62)
+      status.setText(results.length > 0 && results[0] == PackageManager.PERMISSION_GRANTED
+          ? "Microphone ready. Hold to talk and release to score."
+          : "Microphone access is needed for voice scoring.");
+  }
+
   private void capture(boolean enrolling) {
+    capture(enrolling, true);
+  }
+
+  private void capture(boolean enrolling, boolean timed) {
     if (busy) return;
+    if (speechModel == null || enrolling && extractor == null) return;
     if (checkSelfPermission(Manifest.permission.RECORD_AUDIO)
         != PackageManager.PERMISSION_GRANTED) {
       requestPermissions(new String[] {Manifest.permission.RECORD_AUDIO}, 62);
       return;
     }
-    if (!enrolling && !hasProfile()) {
-      status.setText("Enroll the official before accepting commands.");
-      return;
-    }
     busy = true;
+    long id = ++captureId;
+    stopRequested = false;
+    cancelRequested = false;
     enroll.setEnabled(false);
-    command.setEnabled(false);
+    if (enrolling) command.setEnabled(false);
     status.setText(
         enrolling
             ? "Phrase "
                 + (samples.size() + 1)
                 + " of 3: say ‘Scorer, four runs by the batter, wide ball, undo last ball’ for five"
                 + " seconds."
-            : "Listening for five seconds. Say your full command now.");
+            : timed ? "Listening for five seconds. Say your full command now."
+                : "Listening while held. Release to transcribe.");
     nativeQueue.execute(
         () -> {
           try {
-            int rate = 16000, count = rate * 5;
+            int rate = 16000, count = rate * (enrolling || timed ? 5 : 15);
             short[] pcm = new short[count];
             int min =
                 AudioRecord.getMinBufferSize(
@@ -159,7 +209,8 @@ public class VoiceActivity extends AppCompatActivity implements RecognitionListe
               throw new IOException("Microphone is unavailable");
             mic.startRecording();
             int position = 0;
-            while (alive && position < count) {
+            while (alive && !cancelRequested && position < count
+                && (enrolling || timed || !stopRequested)) {
               int n = mic.read(pcm, position, Math.min(2048, count - position));
               if (n < 0) throw new IOException("Microphone capture failed");
               position += n;
@@ -168,14 +219,32 @@ public class VoiceActivity extends AppCompatActivity implements RecognitionListe
             mic.release();
             mic = null;
             if (!alive) return;
-            float[] waveform = new float[count];
+            if (cancelRequested || id != captureId) {
+              runOnUiThread(() -> finishCaptureFor(id, "Recording cancelled. No command applied."));
+              return;
+            }
+            if (position < rate)
+              throw new IOException("Hold the button for at least one second and speak clearly.");
+            short[] capturedAudio = Arrays.copyOf(pcm, position);
+            float[] waveform = new float[position];
             double energy = 0;
-            for (int i = 0; i < count; i++) {
+            for (int i = 0; i < position; i++) {
               waveform[i] = pcm[i] / 32768f;
               energy += waveform[i] * waveform[i];
             }
-            if (Math.sqrt(energy / count) < .003)
+            if (Math.sqrt(energy / position) < .003)
               throw new IOException("Speech was too quiet. Move closer and try again.");
+            if (!enrolling && (extractor == null || !hasProfile() || position < rate * 3)) {
+              runOnUiThread(() -> {
+                if (!alive || cancelRequested || id != captureId) {
+                  finishCaptureFor(id, "Recording cancelled. No command applied.");
+                  return;
+                }
+                status.setText("Transcribing. Review the command before it changes the score.");
+                transcribe(capturedAudio, id);
+              });
+              return;
+            }
             OnlineStream stream = extractor.createStream();
             float[] embedding;
             try {
@@ -187,6 +256,7 @@ public class VoiceActivity extends AppCompatActivity implements RecognitionListe
             } finally {
               stream.release();
             }
+            if (cancelRequested || id != captureId) return;
             if (enrolling) {
               samples.add(embedding);
               if (samples.size() == 3) {
@@ -202,7 +272,7 @@ public class VoiceActivity extends AppCompatActivity implements RecognitionListe
               }
               runOnUiThread(
                   () ->
-                      finishCapture(
+                      finishCaptureFor(id,
                           hasProfile()
                               ? "Official enrolled. Voice profile saved only on this phone."
                               : "Sample saved. Tap Enroll again for the next phrase."));
@@ -219,8 +289,12 @@ public class VoiceActivity extends AppCompatActivity implements RecognitionListe
               if (similarity < .65) {
                 runOnUiThread(
                     () -> {
+                      if (cancelRequested || id != captureId) {
+                        finishCaptureFor(id, "Recording cancelled. No command applied.");
+                        return;
+                      }
                       status.setTextColor(0xffab3f32);
-                      finishCapture(
+                      finishCaptureFor(id,
                           "Background voice blocked · voice match "
                               + Math.round(similarity * 100)
                               + "%. No command applied.");
@@ -228,21 +302,30 @@ public class VoiceActivity extends AppCompatActivity implements RecognitionListe
               } else
                 runOnUiThread(
                     () -> {
+                      if (cancelRequested || id != captureId) {
+                        finishCaptureFor(id, "Recording cancelled. No command applied.");
+                        return;
+                      }
                       status.setTextColor(0xff147653);
                       status.setText(
                           "Official recognized · "
                               + Math.round(similarity * 100)
                               + "%. Transcribing verified audio…");
-                      transcribe(pcm);
+                      if (cancelRequested || id != captureId)
+                        finishCaptureFor(id, "Recording cancelled. No command applied.");
+                      else transcribe(capturedAudio, id);
                     });
             }
           } catch (Throwable e) {
-            runOnUiThread(() -> finishCapture("Could not verify voice: " + e.getMessage()));
+            runOnUiThread(() -> finishCaptureFor(id,
+                "Could not verify voice: " + e.getMessage()));
           } finally {
             if (mic != null) {
               mic.release();
               mic = null;
             }
+            if (cancelRequested)
+              runOnUiThread(() -> finishCaptureFor(id, "Recording cancelled. No command applied."));
           }
         });
   }
@@ -251,11 +334,15 @@ public class VoiceActivity extends AppCompatActivity implements RecognitionListe
     if (!alive) return;
     status.setText(message);
     busy = false;
-    enroll.setEnabled(true);
+    enroll.setEnabled(extractor != null);
     command.setEnabled(true);
   }
 
-  private void transcribe(short[] pcm) {
+  private void finishCaptureFor(long id, String message) {
+    if (id == captureId) finishCapture(message);
+  }
+
+  private void transcribe(short[] pcm, long id) {
     nativeQueue.execute(
         () -> {
           try (org.vosk.Recognizer decoder = new org.vosk.Recognizer(speechModel, 16000)) {
@@ -271,7 +358,10 @@ public class VoiceActivity extends AppCompatActivity implements RecognitionListe
             String line = text.toString().trim();
             runOnUiThread(
                 () -> {
-                  if (!alive) return;
+                  if (!alive || cancelRequested || id != captureId) {
+                    finishCaptureFor(id, "Recording cancelled. No command applied.");
+                    return;
+                  }
                   if (line.isEmpty()) {
                     finishCapture("No command recognized. Try a clear full phrase.");
                     return;
@@ -283,7 +373,12 @@ public class VoiceActivity extends AppCompatActivity implements RecognitionListe
                   onResults(b);
                 });
           } catch (Exception e) {
-            runOnUiThread(() -> finishCapture("Offline transcription failed: " + e.getMessage()));
+            runOnUiThread(() -> finishCaptureFor(id,
+                "Offline transcription failed: " + e.getMessage()));
+          } finally {
+            if (cancelRequested)
+              runOnUiThread(() -> finishCaptureFor(id,
+                  "Recording cancelled. No command applied."));
           }
         });
   }
@@ -343,6 +438,13 @@ public class VoiceActivity extends AppCompatActivity implements RecognitionListe
 
   @Override
   public void onEvent(int t, Bundle b) {}
+
+  @Override
+  protected void onPause() {
+    cancelRequested = true;
+    stopRequested = true;
+    super.onPause();
+  }
 
   @Override
   protected void onDestroy() {

@@ -190,7 +190,7 @@ public final class Cricket {
 
   public static final class Progress {
     public final int legal, runs, wickets, legalBefore, runsBefore, wicketsBefore;
-    public final String strikerBefore, nonStrikerBefore, bowler, fielder;
+    public final String strikerBefore, nonStrikerBefore, bowler, fielder, label;
     public final Dismissal dismissal;
     public final Extra extra;
 
@@ -206,6 +206,7 @@ public final class Cricket {
       this.nonStrikerBefore = nonStrikerBefore;
       this.bowler = bowler;
       fielder = event.fielder;
+      label = event.label();
       dismissal = event.dismissal;
       extra = event.extra;
     }
@@ -325,7 +326,7 @@ public final class Cricket {
                 + e.extras
                 + automatic
                 + (e.extra == Extra.NO_BALL ? 0 : e.overthrow));
-      if (!wide && !pen) {
+      if (!wide && !pen && !nb) {
         bt.balls++;
       }
       bt.runs += e.bat + (e.extra == Extra.NONE || nb ? e.overthrow : 0);
@@ -406,6 +407,8 @@ public final class Cricket {
         name = "",
         teamA,
         teamB,
+        tossWinner = "",
+        tossDecision = "",
         scorer = "",
         umpire = "",
         venue = "",
@@ -459,7 +462,37 @@ public final class Cricket {
           throw new IllegalArgumentException("Select both batters.");
         if (e.bat < 0 || e.extras < 0 || e.completed < 0 || e.overthrow < 0)
           throw new IllegalArgumentException("Runs cannot be negative.");
+        boolean legalDismissal = e.dismissal == Dismissal.NONE
+            || ((!s.freeHit && e.extra != Extra.NO_BALL)
+                || e.dismissal == Dismissal.RUN_OUT || e.dismissal == Dismissal.OBSTRUCTING)
+                && (e.extra != Extra.WIDE || e.dismissal == Dismissal.RUN_OUT
+                    || e.dismissal == Dismissal.STUMPED || e.dismissal == Dismissal.HIT_WICKET
+                    || e.dismissal == Dismissal.OBSTRUCTING);
+        if (!legalDismissal)
+          throw new IllegalArgumentException("That dismissal is not allowed on this delivery.");
+        if (e.dismissal != Dismissal.NONE && !e.incoming.isEmpty()) {
+          ArrayList<String> battingRoster = current().battingTeam.equals(teamA) ? rosterA : rosterB;
+          if (!battingRoster.isEmpty() && !battingRoster.contains(e.incoming))
+            throw new IllegalArgumentException("Incoming batter is not in the playing squad.");
+          Batting incoming = s.batting.get(e.incoming);
+          if (incoming != null && (incoming.out || incoming.retired
+              || e.incoming.equals(s.striker) || e.incoming.equals(s.nonStriker)))
+            throw new IllegalArgumentException("Choose an available incoming batter.");
+        }
         e.bowler = s.bowler;
+      }
+      if (e.kind == Kind.BOWLER) {
+        ArrayList<String> bowlingRoster = current().bowlingTeam.equals(teamA) ? rosterA : rosterB;
+        if (!bowlingRoster.isEmpty() && !bowlingRoster.contains(e.player))
+          throw new IllegalArgumentException("Bowler is not in the playing squad.");
+      }
+      if (e.kind == Kind.BATTERS) {
+        ArrayList<String> battingRoster = current().battingTeam.equals(teamA) ? rosterA : rosterB;
+        if (e.player.equals(e.partner) || e.player.isEmpty() || e.partner.isEmpty())
+          throw new IllegalArgumentException("Choose two different batters.");
+        if (!battingRoster.isEmpty()
+            && (!battingRoster.contains(e.player) || !battingRoster.contains(e.partner)))
+          throw new IllegalArgumentException("Both batters must be in the playing squad.");
       }
       if (e.kind == Kind.BATTERS && (s.bat(e.player).out || s.bat(e.partner).out))
         throw new IllegalArgumentException("Dismissed batters cannot return to the crease.");

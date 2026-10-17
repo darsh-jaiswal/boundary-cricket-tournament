@@ -52,6 +52,15 @@ response. This verifies a server-dependent calculation flow in static code;
 the server's qualification algorithm and runtime response are unobserved.
 No CricHeroes account or API was used, and no server request was replayed.
 
+Focused REA class inspection of
+`com.cricheroes.cricheroes.scoring.activity.TossActivity` returned Evidence
+`ev_77744ccf8f9b77a6db2bb6e8409ac61c723f18d34c44c0c03901f80322cacad6`.
+The shipped class inventory contains team selection, `onBatSelect`,
+`onBowlSelect`, `flipCoin`, `validate` and `validateOfficials` methods. This
+supports a separate toss/choice step but does not establish runtime screen
+order, field requirements or server behavior. Boundary's match setup uses its
+own toss, playing squad and opener workflow.
+
 ## New Boundary NRR planner
 
 Tournaments -> Registrations & schedule -> NRR scenario planner.
