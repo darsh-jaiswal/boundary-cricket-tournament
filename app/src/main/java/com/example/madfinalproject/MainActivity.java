@@ -595,6 +595,9 @@ public class MainActivity extends AppCompatActivity {
                 interrupt();
             }
           });
+      if (canResumeBatter(s)) action(body, "Return retired batter", this::resumeBatter);
+      action(body, "Add scorer note", this::scorerNote);
+      action(body, "End innings early", this::endInningsEarly);
     } else if (s.closed && match.innings.size() == 1) action(body, "Start the chase", this::chase);
     if (match.innings.size() == 2 && s.closed) card("Final result", match.result(), story());
     gap();
@@ -1087,6 +1090,71 @@ public class MainActivity extends AppCompatActivity {
         });
   }
 
+  private boolean canResumeBatter(State state) {
+    if (!state.striker.isEmpty() && !state.nonStriker.isEmpty()) return false;
+    for (String player : squad(match.current().battingTeam)) {
+      Batting batting = state.batting.get(player);
+      if (batting != null && batting.retired && !batting.out) return true;
+    }
+    return false;
+  }
+
+  private void resumeBatter() {
+    if (!writable()) return;
+    State state = match.state();
+    if (state.closed || !canResumeBatter(state))
+      throw new IllegalArgumentException("No retired batter can return to a vacant end.");
+    List<String> retired = new ArrayList<>();
+    for (String player : squad(match.current().battingTeam)) {
+      Batting batting = state.batting.get(player);
+      if (batting != null && batting.retired && !batting.out) retired.add(player);
+    }
+    List<String> ends = new ArrayList<>();
+    if (state.striker.isEmpty()) ends.add("Striker");
+    if (state.nonStriker.isEmpty()) ends.add("Non-striker");
+    LinearLayout box = form();
+    Spinner player = spinner(box, "Returning batter", retired.toArray(new String[0]));
+    Spinner end = spinner(box, "Vacant end", ends.toArray(new String[0]));
+    dialog("Return retired batter", box, "Return to crease", () -> {
+      Event event = new Event();
+      event.kind = Kind.RESUME;
+      event.player = (String) player.getSelectedItem();
+      event.nonStrikerOut = end.getSelectedItem().equals("Non-striker");
+      record(event);
+    });
+  }
+
+  private void endInningsEarly() {
+    if (!writable()) return;
+    if (match.state().closed) throw new IllegalArgumentException("This innings has already finished.");
+    new AlertDialog.Builder(this)
+        .setTitle("End innings early?")
+        .setMessage("This will close the current innings at " + match.state().runs + "/"
+            + match.state().wickets + ". You can reverse it from History or Undo.")
+        .setNegativeButton("Keep scoring", null)
+        .setPositiveButton("End innings", (dialog, which) -> guard(() -> {
+          if (!writable()) return;
+          Event event = new Event();
+          event.kind = Kind.END_INNINGS;
+          record(event);
+        }))
+        .show();
+  }
+
+  private void scorerNote() {
+    if (!writable()) return;
+    LinearLayout box = form();
+    EditText note = field(box, "Match note", "", false);
+    note.setSingleLine(false);
+    note.setMinLines(3);
+    dialog("Scorer note", box, "Save note", () -> {
+      Event event = new Event();
+      event.kind = Kind.NOTE;
+      event.note = val(note);
+      record(event);
+    });
+  }
+
   private void chase() {
     if (!writable()) return;
     LinearLayout box = form();
@@ -1164,6 +1232,17 @@ public class MainActivity extends AppCompatActivity {
   private void editEvent(int inningsIndex, int index) {
     if (!writable()) return;
     Event e = match.innings.get(inningsIndex).events.get(index);
+    if (e.kind != Kind.BALL) {
+      LinearLayout controls = form();
+      CheckBox reversed = check(controls, "Remove this action from the score", e.reversed);
+      dialog("Correct " + e.label(), controls, "Apply correction", () ->
+          confirmReversal("Recalculate from action " + (index + 1), () -> {
+            e.reversed = reversed.isChecked();
+            persist();
+            draw();
+          }));
+      return;
+    }
     LinearLayout box = form();
     EditText runs = field(box, "Bat runs", "" + e.bat, true),
         extras = field(box, "Additional extras", "" + e.extras, true),

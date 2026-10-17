@@ -17,7 +17,9 @@ public final class Cricket {
     BATTERS,
     RETIRE,
     RESUME,
-    INTERRUPTION
+    INTERRUPTION,
+    END_INNINGS,
+    NOTE
   }
 
   public enum Extra {
@@ -132,6 +134,8 @@ public final class Cricket {
 
     public String label() {
       if (reversed) return "Decision Reversed";
+      if (kind == Kind.END_INNINGS) return "Innings ended early";
+      if (kind == Kind.NOTE) return "Scorer note · " + note;
       if (kind != Kind.BALL) return kind + " " + player;
       return dismissal != Dismissal.NONE
           ? "W · " + dismissal.name().replace('_', ' ')
@@ -249,6 +253,7 @@ public final class Cricket {
       s.maxBalls = r.overs * r.ballsPerOver;
       s.bat(opener);
       s.bat(partner);
+      boolean endedEarly = false;
       for (Event e : events) {
         if (e.reversed) {
           s.commentary.add("Decision Reversed: " + e.note);
@@ -267,7 +272,8 @@ public final class Cricket {
             s.bowl(e.player);
             break;
           case BATTERS:
-            if (!s.bat(e.player).out && !s.bat(e.partner).out) {
+            if (!s.bat(e.player).out && !s.bat(e.partner).out
+                && !s.bat(e.player).retired && !s.bat(e.partner).retired) {
               s.striker = e.player;
               s.nonStriker = e.partner;
               s.bat(e.player);
@@ -275,12 +281,29 @@ public final class Cricket {
             }
             break;
           case RETIRE:
+            if (!e.player.equals(s.striker) && !e.player.equals(s.nonStriker)) {
+              s.commentary.add("Retained invalid retirement: " + e.player);
+              break;
+            }
+            Batting replacement = s.batting.get(e.incoming);
+            if (!e.incoming.isEmpty() && (e.incoming.equals(s.striker)
+                || e.incoming.equals(s.nonStriker)
+                || replacement != null && (replacement.out || replacement.retired))) {
+              s.commentary.add("Retained invalid replacement: " + e.incoming);
+              break;
+            }
             s.bat(e.player).retired = true;
             if (e.player.equals(s.striker)) s.striker = e.incoming;
             else if (e.player.equals(s.nonStriker)) s.nonStriker = e.incoming;
-            s.bat(e.incoming);
+            if (!e.incoming.isEmpty()) s.bat(e.incoming);
             break;
           case RESUME:
+            Batting returning = s.batting.get(e.player);
+            String vacantEnd = e.nonStrikerOut ? s.nonStriker : s.striker;
+            if (returning == null || !returning.retired || returning.out || !vacantEnd.isEmpty()) {
+              s.commentary.add("Retained invalid return: " + e.player);
+              break;
+            }
             s.bat(e.player).retired = false;
             if (e.nonStrikerOut) s.nonStriker = e.player;
             else s.striker = e.player;
@@ -289,12 +312,20 @@ public final class Cricket {
             s.maxBalls = e.revisedBalls;
             s.target = e.revisedTarget;
             break;
+          case END_INNINGS:
+            endedEarly = true;
+            s.commentary.add(s.overs(r) + " · Innings ended early by the scorer. "
+                + s.runs + "/" + s.wickets);
+            break;
+          case NOTE:
+            s.commentary.add(s.overs(r) + " · Scorer note: " + e.note);
+            break;
           case BALL:
             apply(s, r, e);
             break;
         }
         s.closed =
-            (s.target > 0 && s.runs >= s.target)
+            endedEarly || (s.target > 0 && s.runs >= s.target)
                 || s.legal >= s.maxBalls
                 || s.wickets >= r.players - (r.lastMan ? 0 : 1);
         if (progress != null && e.kind == Kind.BALL)
@@ -494,8 +525,32 @@ public final class Cricket {
             && (!battingRoster.contains(e.player) || !battingRoster.contains(e.partner)))
           throw new IllegalArgumentException("Both batters must be in the playing squad.");
       }
-      if (e.kind == Kind.BATTERS && (s.bat(e.player).out || s.bat(e.partner).out))
-        throw new IllegalArgumentException("Dismissed batters cannot return to the crease.");
+      if (e.kind == Kind.BATTERS && (s.bat(e.player).out || s.bat(e.partner).out
+          || s.bat(e.player).retired || s.bat(e.partner).retired))
+        throw new IllegalArgumentException("Dismissed or retired batters cannot be selected at the crease.");
+      if (e.kind == Kind.RETIRE) {
+        if (s.closed || (!e.player.equals(s.striker) && !e.player.equals(s.nonStriker)))
+          throw new IllegalArgumentException("Choose a current batter to retire.");
+        if (!e.incoming.isEmpty()) {
+          ArrayList<String> battingRoster = current().battingTeam.equals(teamA) ? rosterA : rosterB;
+          Batting replacement = s.batting.get(e.incoming);
+          if (!battingRoster.isEmpty() && !battingRoster.contains(e.incoming)
+              || e.incoming.equals(s.striker) || e.incoming.equals(s.nonStriker)
+              || replacement != null && (replacement.out || replacement.retired))
+            throw new IllegalArgumentException("Choose an available replacement batter.");
+        }
+      }
+      if (e.kind == Kind.RESUME) {
+        Batting returning = s.batting.get(e.player);
+        String end = e.nonStrikerOut ? s.nonStriker : s.striker;
+        if (s.closed || returning == null || !returning.retired || returning.out || !end.isEmpty())
+          throw new IllegalArgumentException("A retired batter can return only to a vacant end.");
+      }
+      if (e.kind == Kind.END_INNINGS && s.closed)
+        throw new IllegalArgumentException("This innings has already finished.");
+      if (e.kind == Kind.NOTE && (e.note == null || e.note.trim().isEmpty()
+          || e.note.length() > 500))
+        throw new IllegalArgumentException("Enter a note of 1–500 characters.");
       current().events.add(e);
       revision++;
       updated = System.currentTimeMillis();
@@ -513,7 +568,9 @@ public final class Cricket {
           if (e.kind == Kind.BALL
               || e.kind == Kind.RETIRE
               || e.kind == Kind.RESUME
-              || e.kind == Kind.INTERRUPTION) count--;
+              || e.kind == Kind.INTERRUPTION
+              || e.kind == Kind.END_INNINGS
+              || e.kind == Kind.NOTE) count--;
         }
       }
       revision++;

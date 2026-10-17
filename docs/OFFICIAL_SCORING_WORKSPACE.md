@@ -11,6 +11,12 @@ the playing squad for each side, and opening batters. Squads are saved with
 the match so subsequent team edits do not change a live match. Fixture match
 and tournament records are saved in one SQLite transaction.
 
+During scoring, an official can end either innings early, add a journaled
+scorer note to commentary, and return a retired batter when an end is vacant.
+These actions remain in the journal; Undo and History can reverse them. Replay
+skips a return or retirement that becomes invalid after an earlier correction,
+so a corrected sequence cannot silently replace a different batter.
+
 Push-to-talk uses the existing [Vosk Android repository](https://github.com/alphacep/vosk-api)
 and the bundled [small Indian English model](https://alphacephei.com/vosk/models).
 Hold the microphone button, speak, and release; audio is recorded for at most
