@@ -1,8 +1,300 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Boundary — Privacy Policy</title><link rel="stylesheet" href="/shop.css"></head><body><header><a class="brand" href="/">BOUNDARY</a><nav><a href="/shop.html">Shop</a><a href="/terms.html">Terms</a></nav></header><main style="max-width:850px;padding-top:40px;padding-bottom:60px"><p class="eyebrow">LAST UPDATED 18 OCTOBER 2026</p><h1 style="font-size:48px">Privacy Policy</h1><p>This policy explains how Boundary processes information in its Android scoring app, account registration, community, public match pages and merchandise shop.</p>
-<h2>Information we process</h2><p><strong>Accounts:</strong> Clerk processes sign-in details, verified phone numbers and account sessions. Boundary stores the account identifier, cricket display name and a keyed hash of the registered phone number for exact phone lookup. Phone numbers are not listed in a public directory. An authorised, linked scoring app can find a registered player's name and account identifier by entering that player's phone number.</p><p><strong>Device linking:</strong> We store a hash of the device session token, a hash of the requesting network address, expiry times and lookup counters. A pending link lasts ten minutes; an approved device session lasts up to thirty days unless revoked. The app stores its session token privately on the device and excludes it from its declared Android backup set.</p><p><strong>Cricket and community:</strong> Teams, squads, match events, named officials, fielding credits, scores, statistics, community posts and replies may contain information you or other users enter. Public match snapshots and community posts are publicly accessible. The scoring device stores its match journal locally; private cloud recovery journals are encrypted separately from public score snapshots.</p><p><strong>Orders:</strong> For an order we store the recipient name, delivery address, verified contact phone, items, amount, payment provider references, status and timestamps. Razorpay processes payment details; Boundary stores gateway identifiers and confirmation/refund states, not full card numbers, CVVs or UPI PINs.</p>
-<h2>Camera, microphone and local files</h2><p>The app requests camera or microphone access for features you choose, such as voice scoring, scorebook scanning, replay and streaming. Offline voice recognition and an optional speaker profile run on the device; the speaker profile is stored locally. Scorebook scanning uses an on-device text recognition library. Replay recordings and exports are local unless you share them. A live stream sends camera and any enabled microphone audio to the streaming endpoint you configure. Android sharing sends selected content to the app or recipient you choose.</p>
-<h2>Why the information is used</h2><p>We use this information to authenticate accounts, verify player eligibility, link your app, calculate scores and statistics, publish match updates, show community content, prevent abuse, reserve stock, process orders and payments, reconcile refunds and respond to support requests. We do not sell personal information or use your private recovery journal for advertising.</p>
-<h2>Providers and sharing</h2><p>Boundary uses Vercel for hosting and request processing, Neon for server databases, Clerk for authentication, and Razorpay for payments. The shop loads Google Fonts, and the provider scripts needed for sign-in and checkout. These services receive the connection and device information needed to deliver their features and may process data in countries other than yours. Their own privacy policies also apply: <a href="https://vercel.com/legal/privacy-policy">Vercel</a>, <a href="https://neon.com/privacy-policy">Neon</a>, <a href="https://clerk.com/legal/privacy">Clerk</a> and <a href="https://razorpay.com/privacy/">Razorpay</a>.</p><p>Order delivery details are intended for the merchant and authorised fulfilment/delivery providers when sales open. Public scores, player names on scorecards, posts and replies are visible to other users. Information may also be disclosed where required by applicable law.</p>
-<h2>Browser storage and security</h2><p>Authentication uses provider cookies and session mechanisms. The shop uses browser storage for a product bag and a checkout request identifier. Clearing this storage removes the local bag but does not delete saved orders or payments. Boundary sends service requests over HTTPS, checks account sessions server-side, and verifies payment ownership and capture before recording a paid order. No system can guarantee absolute security.</p>
-<h2>Retention and your choices</h2><p>Local scoring data remains on your device until removed through app or device controls. Server records are retained as needed to provide the feature, investigate issues and meet legal, accounting or order obligations. Existing public cricket records may include other participants' history; correction or deletion requests need to account for those records and applicable obligations.</p><p>You can sign out, unlink the Android device, manage available account details through Clerk's account menu, remove your own community posts, and request access, correction or deletion of your information through support. Signing out or uninstalling does not automatically delete cloud data. Contact support to withdraw player registration or request a data export or deletion. We may need to verify ownership before acting.</p>
-<h2>Children, contact and policy changes</h2><p>Minors should use Boundary with a parent or guardian's permission and supervision. Purchases require an adult authorised to pay. Please contact support if a child has supplied information without appropriate permission.</p><p>The store support contact appears in the shop once configured. Until then, ask the <a href="https://github.com/darsh-jaiswal/boundary-cricket-tournament/issues">project maintainer</a> for a private contact channel. The issue tracker is public: do not post your phone number, address, identification, private recovery code or payment details there. This policy will be updated when data practices change; the revision date appears above.</p><p><a href="/terms.html">Read Terms & Conditions</a></p></main><footer><a href="/terms.html">Terms & Conditions</a> · <a href="/privacy.html">Privacy Policy</a></footer></body></html>
+<!doctype html>
+<html lang="en-IN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" content="#147653">
+<meta name="description" content="How Boundary collects, uses, stores and protects information in its cricket app, website, community and Club Shop.">
+<link rel="canonical" href="https://boundary-cricket-tournament.vercel.app/privacy.html">
+<title>Privacy Policy · Boundary</title>
+<link rel="stylesheet" href="/legal.css">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="site-header">
+  <a class="brand" href="/">BOUNDARY<span>CLUB CRICKET</span></a>
+  <nav class="site-nav" aria-label="Main">
+    <a href="/">Home</a>
+    <a href="/shop.html">Shop</a>
+    <a href="/terms.html">Terms</a>
+    <a href="/privacy.html" aria-current="page">Privacy</a>
+    <a href="/returns.html">Returns</a>
+  </nav>
+</header>
+
+<main id="content" class="page">
+  <div class="intro" id="top">
+    <p class="eyebrow">Legal</p>
+    <h1>Privacy Policy</h1>
+    <p class="updated">Last updated <time datetime="2026-10-18">18 October 2026</time></p>
+    <p class="lede">This policy explains what information Boundary collects in its Android scoring app, player registration, community, public match pages and Club Shop, and how we use, store and protect it.</p>
+  </div>
+
+  <aside class="summary" aria-labelledby="summary-title">
+    <h2 id="summary-title">In short</h2>
+    <ul>
+      <li>We collect what we need to run accounts, scoring, the community and orders. That includes your verified phone number, display name, match data, posts and delivery details.</li>
+      <li>For player lookup we store a keyed hash of your phone number. Phone numbers are not listed in any public directory.</li>
+      <li>Razorpay handles card and UPI details. We never receive your full card number, CVV or UPI PIN.</li>
+      <li>Public scores, names on scorecards and community posts can be seen by anyone.</li>
+      <li>We do not sell personal information, and we do not use advertising or analytics cookies.</li>
+      <li>You can ask for access, correction or deletion of your information through support.</li>
+    </ul>
+    <p class="note">This summary is for convenience only. The full policy below applies.</p>
+  </aside>
+
+  <nav class="toc" aria-labelledby="toc-title">
+    <h2 id="toc-title">Contents</h2>
+    <ol>
+      <li><a href="#scope">Who we are and what this covers</a></li>
+      <li><a href="#collect">Information we collect</a></li>
+      <li><a href="#use">How we use information</a></li>
+      <li><a href="#basis">Consent and legal basis</a></li>
+      <li><a href="#cookies">Cookies and browser storage</a></li>
+      <li><a href="#payments">Payment processing</a></li>
+      <li><a href="#third-parties">Third-party services</a></li>
+      <li><a href="#sharing">How we share information</a></li>
+      <li><a href="#security">Storage and security</a></li>
+      <li><a href="#retention">How long we keep information</a></li>
+      <li><a href="#children">Children</a></li>
+      <li><a href="#rights">Your rights and choices</a></li>
+      <li><a href="#changes">Changes to this policy</a></li>
+      <li><a href="#contact">Contact and grievance officer</a></li>
+    </ol>
+  </nav>
+
+  <article class="doc">
+    <section id="scope" aria-labelledby="scope-h">
+      <h2 id="scope-h"><span class="num">1.</span> Who we are and what this covers</h2>
+      <p>Boundary is operated by <span class="ph">[Registered business name]</span>, <span class="ph">[Registered postal address]</span> ("we", "us"). We decide how and why the personal information described here is processed.</p>
+      <p>This policy covers the Boundary Android app, this website, player registration, the community, public match pages and the Club Shop. Third-party services that we link to or use have their own privacy policies, listed in <a href="#third-parties">section 7</a>.</p>
+    </section>
+
+    <section id="collect" aria-labelledby="collect-h">
+      <h2 id="collect-h"><span class="num">2.</span> Information we collect</h2>
+
+      <h3>Account and sign-in</h3>
+      <p>Clerk, our sign-in provider, processes your phone number, one-time verification codes and sign-in sessions. Clerk also holds any name or username you add to your account. We use that name as the author name on your community posts.</p>
+
+      <h3>Player registration</h3>
+      <p>When you register as a player, we store your account identifier, your cricket display name, a keyed hash of your verified phone number, the registration time and the version of the terms you accepted. The hash lets a linked scoring app find you by exact phone number. A linked app that enters your phone number sees your display name and account identifier. Your phone number itself is not shown in any public directory.</p>
+
+      <h3>Device linking</h3>
+      <p>When you link the Android app, we store a hash of the device session token, a hash of the requesting network address, expiry times and lookup counters. The app keeps its session token privately on your phone and excludes it from its declared Android backup set.</p>
+
+      <h3>Cricket and match data</h3>
+      <p>Teams, squads, match events, named officials, fielding credits, scores and statistics can contain information that you or other users enter. When a scorer publishes a match, a public snapshot is stored and anyone can view it. The scoring device keeps its full match journal locally. A private cloud recovery journal, if used, is encrypted separately from the public snapshot.</p>
+
+      <h3>Community</h3>
+      <p>For community posts and replies we store your account identifier, author name, the category, title, city and text you enter, and the time you posted. Posts and replies are public.</p>
+
+      <h3>Orders and delivery</h3>
+      <p>For a shop order we store the recipient name, delivery address, city, state, PIN code, your verified contact phone number, the items, amounts and delivery charge, Razorpay order, payment and refund references, order status, timestamps and the terms version you accepted.</p>
+
+      <h3>Support messages</h3>
+      <p>If you contact us, we keep your message, your contact details and any order reference you include so we can reply.</p>
+
+      <h3>Technical and security information</h3>
+      <p>Our hosting provider processes connection information, such as your IP address and browser details, to deliver and protect the service. Our rate limits store keyed hashes of IP addresses or account identifiers, never the plain values.</p>
+
+      <h3>On your phone</h3>
+      <ul>
+        <li>The app asks for camera or microphone access only for features you choose, such as voice scoring, scorebook scanning, replay and live streaming.</li>
+        <li>Offline voice recognition and the optional speaker profile run on the phone. The speaker profile stays on the phone.</li>
+        <li>Scorebook scanning uses on-device text recognition.</li>
+        <li>Replay recordings and exports stay on the phone unless you share them.</li>
+        <li>A live stream sends camera video and any enabled microphone audio to the streaming endpoint you configure.</li>
+        <li>The profile name, phone number, email and photo you add in the app are stored privately on the phone. Boundary does not upload them.</li>
+        <li>If you turn on Android backup, Android may back up the local match database and scorebook files under Google's terms. The account session token, your profile details and photo, and the speaker profile are excluded.</li>
+        <li>Android sharing sends the content you select to the app or person you choose.</li>
+      </ul>
+    </section>
+
+    <section id="use" aria-labelledby="use-h">
+      <h2 id="use-h"><span class="num">3.</span> How we use information</h2>
+      <p>We use information to:</p>
+      <ul>
+        <li>sign you in, verify your phone number and confirm player eligibility for new matches;</li>
+        <li>link your Android app and let it find registered players for squad selection;</li>
+        <li>calculate scores and statistics and publish match updates;</li>
+        <li>show community posts and replies;</li>
+        <li>reserve stock, process orders and payments, arrange delivery, and handle cancellations, returns and refunds;</li>
+        <li>respond to support requests and complaints;</li>
+        <li>prevent abuse, fraud and overload of the service;</li>
+        <li>meet legal, tax and accounting obligations.</li>
+      </ul>
+      <p>We do not sell personal information. We do not use your information for advertising, and we do not use your private recovery journal for anything other than restoring your match.</p>
+    </section>
+
+    <section id="basis" aria-labelledby="basis-h">
+      <h2 id="basis-h"><span class="num">4.</span> Consent and legal basis</h2>
+      <p>We process personal information with your consent, which you give when you register, accept the terms at checkout, or choose to use a feature. We also process it where the law allows without separate consent, for example to complete an order you placed, to meet legal obligations, or to keep the service secure.</p>
+      <p>We handle personal information in line with applicable Indian law, including the Information Technology Act, 2000 and its rules and, as its provisions apply, the Digital Personal Data Protection Act, 2023. This policy is a general description and is not legal advice.</p>
+      <p>You can withdraw consent at any time by contacting support. We will then stop processing for that purpose, although some features may no longer work for you. Withdrawal does not affect processing already done, or records we must keep by law.</p>
+    </section>
+
+    <section id="cookies" aria-labelledby="cookies-h">
+      <h2 id="cookies-h"><span class="num">5.</span> Cookies and browser storage</h2>
+      <p>Boundary does not set advertising, analytics or tracking cookies. The website uses the following:</p>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th scope="col">What</th><th scope="col">Set by</th><th scope="col">Purpose</th><th scope="col">How long</th></tr></thead>
+          <tbody>
+            <tr><th scope="row">Sign-in cookies and browser storage</th><td>Clerk</td><td>Keep you signed in and protect sign-in. Strictly necessary.</td><td>For the sign-in session, under Clerk's policy</td></tr>
+            <tr><th scope="row"><code>boundary-bag</code> (local storage)</th><td>Boundary shop</td><td>Remembers the items in your bag on this browser.</td><td>Until you clear it, empty the bag or complete payment</td></tr>
+            <tr><th scope="row"><code>boundary-checkout-request</code> (session storage)</th><td>Boundary shop</td><td>Stops a retried checkout from creating a duplicate order.</td><td>Until the browser tab closes</td></tr>
+            <tr><th scope="row">Checkout cookies and storage</th><td>Razorpay</td><td>Run the payment window and help prevent payment fraud.</td><td>Set on Razorpay's own domains, under Razorpay's policy</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>The shop and player registration pages load fonts from Google Fonts, so Google receives your IP address and browser details when those fonts load. The policy pages do not.</p>
+      <p>You can clear cookies and storage in your browser settings. Clearing storage removes your local bag but does not delete saved orders or payments. Blocking Clerk's cookies prevents sign-in.</p>
+    </section>
+
+    <section id="payments" aria-labelledby="payments-h">
+      <h2 id="payments-h"><span class="num">6.</span> Payment processing</h2>
+      <p>Razorpay processes all shop payments. You enter card, UPI, net banking or wallet details in Razorpay's checkout window, not on Boundary.</p>
+      <div class="callout">
+        <p>We never receive or store your full card number, CVV, UPI PIN or banking passwords.</p>
+      </div>
+      <ul>
+        <li><strong>What we send to Razorpay.</strong> The order amount and currency, our order reference, and your recipient name and verified phone number to prefill checkout.</li>
+        <li><strong>What we receive from Razorpay.</strong> The Razorpay order and payment identifiers, payment status, amount and currency, and any refund identifier and refund status.</li>
+        <li><strong>How we confirm payment.</strong> Our server checks the payment signature, the order owner, the amount, the currency and a captured payment with Razorpay before it marks an order as paid.</li>
+      </ul>
+      <p>Razorpay may collect further payment and device information to process payments and prevent fraud. Its use of that information is covered by the <a href="https://razorpay.com/privacy/">Razorpay privacy policy</a>.</p>
+    </section>
+
+    <section id="third-parties" aria-labelledby="third-parties-h">
+      <h2 id="third-parties-h"><span class="num">7.</span> Third-party services</h2>
+      <p>These providers process information on our behalf to deliver Boundary. Each receives only the connection and device information and data it needs for its feature, and its own privacy policy also applies.</p>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th scope="col">Provider</th><th scope="col">What it does</th><th scope="col">Information it handles</th></tr></thead>
+          <tbody>
+            <tr><th scope="row"><a href="https://vercel.com/legal/privacy-policy">Vercel</a></th><td>Hosts the website and runs our server functions.</td><td>Requests to the site and API, including IP address and browser details.</td></tr>
+            <tr><th scope="row"><a href="https://neon.com/privacy-policy">Neon</a></th><td>Postgres database for our server records.</td><td>Player registrations, device links, match snapshots and encrypted journals, community posts and orders.</td></tr>
+            <tr><th scope="row"><a href="https://clerk.com/legal/privacy">Clerk</a></th><td>Sign-in, phone verification and account sessions. Its sign-in form may show a Cloudflare bot-protection check.</td><td>Phone number, verification codes, account name and session data.</td></tr>
+            <tr><th scope="row"><a href="https://razorpay.com/privacy/">Razorpay</a></th><td>Payments and refunds.</td><td>Payment details, order amount, and the name and phone number used to prefill checkout.</td></tr>
+            <tr><th scope="row"><a href="https://policies.google.com/privacy">Google Fonts</a></th><td>Font delivery on the shop and player registration pages.</td><td>IP address and browser details.</td></tr>
+            <tr><th scope="row">Delivery partners</th><td><span class="ph">[Courier or fulfilment partner names]</span> deliver shop orders.</td><td>Recipient name, delivery address, phone number and parcel details.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="sharing" aria-labelledby="sharing-h">
+      <h2 id="sharing-h"><span class="num">8.</span> How we share information</h2>
+      <ul>
+        <li><strong>With service providers.</strong> We share information with the providers in <a href="#third-parties">section 7</a> only as needed for their service.</li>
+        <li><strong>For delivery.</strong> We give delivery details to authorised fulfilment and delivery partners for paid orders.</li>
+        <li><strong>Publicly.</strong> Public scores, player names on scorecards, community posts and replies are visible to other users and to anyone who visits the site.</li>
+        <li><strong>With linked scoring apps.</strong> A linked app that enters a registered player's exact phone number receives that player's display name and account identifier.</li>
+        <li><strong>When the law requires it.</strong> We may disclose information to comply with a legal obligation or a valid request from a government authority.</li>
+        <li><strong>With your consent.</strong> We share information in other ways only when you ask us to.</li>
+      </ul>
+    </section>
+
+    <section id="security" aria-labelledby="security-h">
+      <h2 id="security-h"><span class="num">9.</span> Storage and security</h2>
+      <p>Our server records are stored in a Neon Postgres database. Vercel currently runs our server functions in the United States, and our providers may store or process data in countries other than India.</p>
+      <p>Our safeguards include:</p>
+      <ul>
+        <li>HTTPS for all service requests;</li>
+        <li>server-side checks of every signed-in request;</li>
+        <li>a keyed hash of registered phone numbers for player lookup, so the lookup table does not hold the numbers themselves;</li>
+        <li>hashes, not plain values, for device session tokens, network addresses and rate-limit subjects;</li>
+        <li>separate encryption for private match recovery journals;</li>
+        <li>payment checks of signature, owner, amount, currency and capture before an order is marked as paid;</li>
+        <li>rate limits on device linking, player lookup, community posting and shop requests.</li>
+      </ul>
+      <p>Order records keep your phone number in readable form, because the delivery partner needs it. No system is completely secure. If a personal data breach affects you, we will inform you and the relevant authorities as the law requires.</p>
+    </section>
+
+    <section id="retention" aria-labelledby="retention-h">
+      <h2 id="retention-h"><span class="num">10.</span> How long we keep information</h2>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th scope="col">Information</th><th scope="col">How long</th></tr></thead>
+          <tbody>
+            <tr><th scope="row">Pending device link</th><td>Expires after ten minutes if not approved.</td></tr>
+            <tr><th scope="row">Approved device link</th><td>Expires after thirty days, or sooner when you log out of the app.</td></tr>
+            <tr><th scope="row">Rate-limit counters</th><td>Deleted automatically shortly after they expire, usually within minutes.</td></tr>
+            <tr><th scope="row">Player registration</th><td>Until you ask us to delete it.</td></tr>
+            <tr><th scope="row">Community posts and replies</th><td>Until you remove your post, or we remove the content on request or for breaking the terms.</td></tr>
+            <tr><th scope="row">Public match snapshots and recovery journals</th><td>Until the scorer removes the match, or we remove it on a valid request.</td></tr>
+            <tr><th scope="row">Orders, payments and refunds</th><td>As long as needed for delivery, returns, refunds and disputes, and for <span class="ph">[order record retention period]</span> to meet tax and accounting law.</td></tr>
+            <tr><th scope="row">Support messages</th><td>As long as needed to handle your request and any related order or complaint.</td></tr>
+            <tr><th scope="row">Data on your phone</th><td>Until you remove it through the app (Clear data) or your device settings.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>Clerk and Razorpay keep the information they hold under their own retention policies.</p>
+    </section>
+
+    <section id="children" aria-labelledby="children-h">
+      <h2 id="children-h"><span class="num">11.</span> Children</h2>
+      <p>If you are under 18, use Boundary only with the permission and supervision of a parent or legal guardian. Purchases require an adult who is authorised to pay. We do not track children's behaviour, and we do not show advertising to anyone.</p>
+      <p>If you believe a child has given us information without a parent or guardian's permission, contact support and we will delete it.</p>
+    </section>
+
+    <section id="rights" aria-labelledby="rights-h">
+      <h2 id="rights-h"><span class="num">12.</span> Your rights and choices</h2>
+      <p>Depending on the law that applies, you can ask us to:</p>
+      <ul>
+        <li>give you a summary of the personal information we hold about you and how we use it;</li>
+        <li>correct or update inaccurate or incomplete information;</li>
+        <li>delete your information, unless we must keep it by law;</li>
+        <li>stop processing that relies on your consent;</li>
+        <li>handle a complaint through our grievance officer;</li>
+        <li>let a person you nominate exercise these rights for you if you die or become unable to act.</li>
+      </ul>
+      <h3>Things you can do yourself</h3>
+      <ul>
+        <li>Sign out, or log out of the Android app to end its device link.</li>
+        <li>Remove your own community posts.</li>
+        <li>Manage available account details in Clerk's account menu.</li>
+        <li>Clear the shop bag by clearing your browser storage.</li>
+        <li>Erase all Boundary data on a phone with the app's Clear data option.</li>
+      </ul>
+      <h3>Deleting your account</h3>
+      <p>In the Android app, the Delete account option logs the phone out, removes your profile details and photo from the phone, and prepares an email asking support to delete your registered player record. You can also email support directly with your account details.</p>
+      <p>We verify that the request comes from the account owner before acting. We then delete your player registration and device links and close your sign-in account. We keep order records that tax and accounting law requires. Match scorecards that other scorers saved may still show the name they entered, and correction or deletion requests for those records have to take account of other participants.</p>
+      <p>Signing out or uninstalling the app does not delete cloud data. We respond to verified requests within one month.</p>
+    </section>
+
+    <section id="changes" aria-labelledby="changes-h">
+      <h2 id="changes-h"><span class="num">13.</span> Changes to this policy</h2>
+      <p>We update this policy when our data practices change. The "Last updated" date at the top shows the current revision. If a change significantly affects how we use your information, we will tell you in the app or on the site before it takes effect.</p>
+    </section>
+
+    <section id="contact" aria-labelledby="contact-h">
+      <h2 id="contact-h"><span class="num">14.</span> Contact and grievance officer</h2>
+      <p>For privacy questions and requests, email <span class="ph">[Support email address]</span>. The same address appears in the shop once sales open. Until it is published, ask the <a href="https://github.com/darsh-jaiswal/boundary-cricket-tournament/issues">project maintainer</a> for a private contact channel. The issue tracker is public, so never post your phone number, address, identification, private recovery code or payment details there.</p>
+      <p>You can also contact our grievance officer:</p>
+      <dl class="details">
+        <dt>Name</dt><dd><span class="ph">[Grievance officer name]</span></dd>
+        <dt>Designation</dt><dd><span class="ph">[Designation]</span></dd>
+        <dt>Email</dt><dd><span class="ph">[Grievance officer email]</span></dd>
+        <dt>Phone</dt><dd><span class="ph">[Grievance officer phone]</span></dd>
+        <dt>Address</dt><dd><span class="ph">[Registered postal address]</span></dd>
+      </dl>
+      <p>We acknowledge complaints within 48 hours and resolve them within one month of receipt.</p>
+      <p class="back-top"><a href="#top">Back to top</a></p>
+    </section>
+  </article>
+</main>
+
+<footer class="site-footer">
+  <nav aria-label="Policies and site">
+    <a href="/terms.html">Terms &amp; Conditions</a>
+    <a href="/privacy.html">Privacy Policy</a>
+    <a href="/returns.html">Return &amp; Exchange Policy</a>
+    <a href="/">Home</a>
+    <a href="/shop.html">Shop</a>
+  </nav>
+  <p>Boundary is operated by <span class="ph">[Registered business name]</span>. Every ball. Every ground.</p>
+</footer>
+</body>
+</html>
