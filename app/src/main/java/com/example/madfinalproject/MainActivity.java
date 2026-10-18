@@ -33,6 +33,8 @@ public class MainActivity extends AppCompatActivity {
   private Match match;
   private String page = "Home", role = "Organizer";
   private LinearLayout root, body;
+  private ScrollView pageScroll;
+  private String renderedPageKey;
   private TextToSpeech tts;
   private boolean audioReady, pa;
   private final Handler handler = new Handler(Looper.getMainLooper());
@@ -174,6 +176,10 @@ public class MainActivity extends AppCompatActivity {
   }
 
   private void draw() {
+    String pageKey = page + ":" + role + ":" + (match == null ? "" : match.id);
+    int previousY = pageScroll != null && pageKey.equals(renderedPageKey)
+        ? pageScroll.getScrollY() : 0;
+    renderedPageKey = pageKey;
     root = new LinearLayout(this);
     root.setOrientation(1);
     root.setBackgroundColor(PAPER);
@@ -217,6 +223,10 @@ public class MainActivity extends AppCompatActivity {
       root.addView(strip);
     }
     ScrollView scroll = new ScrollView(this);
+    pageScroll = scroll;
+    // Rebuilding the scoring page must not move the scorer back to the header.
+    scroll.setFocusableInTouchMode(true);
+    scroll.setDescendantFocusability(ViewGroup.FOCUS_BEFORE_DESCENDANTS);
     body = new LinearLayout(this);
     body.setOrientation(1);
     body.setPadding(dp(18), dp(10), dp(18), dp(24));
@@ -270,6 +280,12 @@ public class MainActivity extends AppCompatActivity {
       default:
         home();
     }
+    scroll.getViewTreeObserver().addOnGlobalLayoutListener(new ViewTreeObserver.OnGlobalLayoutListener() {
+      @Override public void onGlobalLayout() {
+        scroll.getViewTreeObserver().removeOnGlobalLayoutListener(this);
+        if (pageScroll == scroll) scroll.scrollTo(0, previousY);
+      }
+    });
   }
 
   private boolean isMyCricket() {
