@@ -102,8 +102,8 @@ public class MainActivity extends AppCompatActivity {
     b.setAllCaps(false);
     b.setTextSize(12);
     b.setTextColor(primary ? ON_ACCENT : INK);
-    b.setBackgroundTintList(
-        android.content.res.ColorStateList.valueOf(primary ? GREEN : SURFACE2));
+    b.setBackground(bg(primary ? GREEN : SURFACE2, 14));
+    b.setStateListAnimator(null);
     b.setMinHeight(dp(48));
     b.setOnClickListener(v -> guard(action));
     return b;
@@ -203,11 +203,10 @@ public class MainActivity extends AppCompatActivity {
           v.setPadding(b.left, b.top, b.right, b.bottom);
           return insets;
         });
+    // draw() swaps the content view on every page change; insets are not re-dispatched unless asked.
+    ViewCompat.requestApplyInsets(root);
     root.addView(topBar());
     if (isMyCricket()) {
-      TextView section = text("Your Cricket", 27, GREEN, false);
-      section.setPadding(dp(18), dp(12), dp(18), dp(10));
-      root.addView(section);
       HorizontalScrollView strip = new HorizontalScrollView(this);
       strip.setHorizontalScrollBarEnabled(false);
       LinearLayout tabs = new LinearLayout(this);
@@ -902,7 +901,7 @@ public class MainActivity extends AppCompatActivity {
     inner.addView(result);
     LinearLayout chips = Ui.row(this);
     chips.setGravity(Gravity.END);
-    chips.addView(Ui.chip(this, pal, "Insights", false, () -> matchDetail(m, "Summary")));
+    chips.addView(Ui.chip(this, pal, "Summary", false, () -> matchDetail(m, "Summary")));
     chips.addView(Ui.space(this, 8, 1));
     chips.addView(Ui.chip(this, pal, "Squads", false, () -> matchDetail(m, "Squads")));
     inner.addView(chips);
