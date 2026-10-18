@@ -71,6 +71,40 @@ export default async function handler(req,res) {
       const user=await registeredUser(rows[0].owner_id);
       return res.status(200).json({id:user.owner_id,name:user.name,verified:true});
     }
+    if(['follow','unfollow','connections','profile'].includes(body.action)) {
+      const link=await device(req);if(!link.owner_id)throw new HttpError(401,'Finish linking your phone account');
+      await rateLimit(res,'players:social','account:'+link.owner_id,30);
+      const me=(await registeredUser(link.owner_id)).owner_id;
+      if(body.action==='connections') {
+        const followers=await sql`SELECT p.owner_id AS id,p.name FROM boundary_player_follows f JOIN boundary_registered_players p ON p.owner_id=f.follower_id
+          WHERE f.followee_id=${me} ORDER BY f.created DESC LIMIT 500`;
+        const following=await sql`SELECT p.owner_id AS id,p.name FROM boundary_player_follows f JOIN boundary_registered_players p ON p.owner_id=f.followee_id
+          WHERE f.follower_id=${me} ORDER BY f.created DESC LIMIT 500`;
+        return res.status(200).json({followers,following});
+      }
+      if(typeof body.id!=='string'||!/^user_[a-zA-Z0-9]+$/.test(body.id))throw new HttpError(400,'That is not a Boundary player code');
+      if(body.action==='unfollow') {
+        await sql`DELETE FROM boundary_player_follows WHERE follower_id=${me} AND followee_id=${body.id}`;
+        return res.status(200).json({id:body.id,following:false});
+      }
+      if(body.action==='follow') {
+        if(body.id===me)throw new HttpError(400,'You cannot follow yourself');
+        const rows=await sql`INSERT INTO boundary_player_follows(follower_id,followee_id)
+          SELECT ${me},owner_id FROM boundary_registered_players WHERE owner_id=${body.id}
+          ON CONFLICT DO NOTHING RETURNING followee_id`;
+        if(!rows.length&&!(await sql`SELECT 1 FROM boundary_registered_players WHERE owner_id=${body.id}`).length)
+          throw new HttpError(404,'This player has not registered on Boundary yet');
+        return res.status(200).json({id:body.id,following:true});
+      }
+      const rows=await sql`SELECT p.owner_id AS id,p.name,
+        (SELECT count(*) FROM boundary_player_follows WHERE followee_id=p.owner_id)::int AS "followerCount",
+        (SELECT count(*) FROM boundary_player_follows WHERE follower_id=p.owner_id)::int AS "followingCount",
+        EXISTS(SELECT 1 FROM boundary_player_follows WHERE follower_id=${me} AND followee_id=p.owner_id) AS following,
+        EXISTS(SELECT 1 FROM boundary_player_follows WHERE follower_id=p.owner_id AND followee_id=${me}) AS "followsYou"
+        FROM boundary_registered_players p WHERE p.owner_id=${body.id}`;
+      if(!rows[0])throw new HttpError(404,'This player has not registered on Boundary yet');
+      return res.status(200).json(rows[0]);
+    }
     if(body.action==='revoke') {const link=await device(req);await sql`UPDATE boundary_device_accounts SET expires=now() WHERE id=${link.id}`;return res.status(200).json({signedOut:true});}
     const user=await verifiedMember(req);
     await rateLimit(res,'players:account-write',user.id,15);
