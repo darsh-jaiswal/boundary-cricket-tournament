@@ -1,4 +1,4 @@
-import { account, verifiedPhone } from './account.js';
+import { account, verifiedGoogle } from './account.js';
 
 const $ = selector => document.querySelector(selector);
 const el = (tag, text, className) => { const node=document.createElement(tag);if(text!==undefined)node.textContent=text;if(className)node.className=className;return node; };
@@ -193,8 +193,13 @@ function renderBag() {
   }
   if(!bag.length)target.append(el('p','Your bag is empty. Choose your kit from the collection.'));
   const shipping=catalog.shippingPaise;$('#total').textContent=bag.length?`Total ${money(total+(shipping||0))}${shipping!==null?` · includes ${money(shipping)} delivery`:''}`:'';
-  $('#pay').disabled=busy||!valid||!verifiedPhone(clerk)||!catalog.salesEnabled;
-  $('#phone-status').textContent=verifiedPhone(clerk)?'Your account phone number is verified.':clerk?.isSignedIn?'Verify a phone number using the account menu above.':'Sign in with a verified phone number to place an order.';
+  $('#pay').disabled=busy||!valid||!verifiedGoogle(clerk)||!catalog.salesEnabled;
+  $('#checkout-status').textContent=!catalog.salesEnabled
+    ?'Checkout is paused while the store confirms stock, payment setup and delivery details. Items in your bag are saved, not reserved.'
+    :!bag.length?'Add an item to your bag to continue.'
+    :!valid?'A selected item is unavailable. Update your bag before checkout.'
+    :!verifiedGoogle(clerk)?'Continue with Google to unlock checkout.':'Ready to continue to Razorpay.';
+  $('#account-status').textContent=verifiedGoogle(clerk)?'Google account connected.':clerk?.isSignedIn?'Connect Google using the account menu above.':'Continue with Google to place an order.';
 }
 async function loadRazorpay() {
   if(window.Razorpay)return;
@@ -220,7 +225,7 @@ async function openPayment(order) {
   });
 }
 async function loadOrders() {
-  if(!verifiedPhone(clerk)){$('#order-list').textContent='Sign in and verify a phone number to view your orders.';return;}
+  if(!verifiedGoogle(clerk)){$('#order-list').textContent='Continue with Google to view your orders.';return;}
   try {
     const rows=await api('GET',undefined,'?orders=1');$('#order-list').replaceChildren();
     for(const order of rows) {
@@ -237,10 +242,10 @@ async function loadOrders() {
 }
 $('#refresh-orders').onclick=loadOrders;
 $('#checkout').onsubmit=async event=>{
-  event.preventDefault();if(busy||!verifiedPhone(clerk)||!catalog?.salesEnabled||!bag.length)return;busy=true;renderBag();updateDialog();
+  event.preventDefault();if(busy||!verifiedGoogle(clerk)||!catalog?.salesEnabled||!bag.length)return;busy=true;renderBag();updateDialog();
   try {
     let requestId=sessionStorage.getItem('boundary-checkout-request');if(!requestId){requestId=crypto.randomUUID();sessionStorage.setItem('boundary-checkout-request',requestId);}
-    const order=await api('POST',{action:'checkout',termsVersion:'2026-10-18',requestId,items:bag,shipping:Object.fromEntries(new FormData(event.currentTarget))});
+    const order=await api('POST',{action:'checkout',termsVersion:'2026-10-19',requestId,items:bag,shipping:Object.fromEntries(new FormData(event.currentTarget))});
     await loadOrders();await openPayment(order);
   }catch(error){message(error.message,true,'#payment-status');}
   finally{busy=false;renderBag();updateDialog();}

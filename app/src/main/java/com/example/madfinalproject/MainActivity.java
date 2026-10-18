@@ -375,14 +375,14 @@ public class MainActivity extends AppCompatActivity {
     details.setPadding(dp(14), 0, dp(8), 0);
     String name = profile.name().isEmpty() ? "Add your name" : profile.name();
     details.addView(Ui.text(this, name, 18, INK, true));
-    for (String line : new String[] {profile.phone(), profile.email()}) {
+    for (String line : new String[] {profile.email()}) {
       if (line.isEmpty()) continue;
       TextView t = Ui.text(this, line, 13, MUTED, false);
       t.setPadding(0, dp(4), 0, 0);
       details.addView(t);
     }
     if (!PlayerAccount.linked(this)) {
-      TextView link = Ui.text(this, "Link your phone account", 13, GREEN, true);
+      TextView link = Ui.text(this, "Link your Google player account", 13, GREEN, true);
       link.setPadding(0, dp(6), 0, 0);
       link.setOnClickListener(v -> { sheet.dismiss(); startActivity(new Intent(this, PlayerAccountActivity.class)); });
       details.addView(link);
@@ -572,7 +572,6 @@ public class MainActivity extends AppCompatActivity {
   private void editProfile() {
     LinearLayout box = form();
     EditText name = field(box, "Display name", profile.name(), false),
-        phone = field(box, "Phone (shown on your panel only)", profile.phone(), false),
         email = field(box, "Email (shown on your panel only)", profile.email(), false);
     PlayerProfile p = profile.attributes();
     EditText city = field(box, "City", p.city, false);
@@ -588,9 +587,9 @@ public class MainActivity extends AppCompatActivity {
     System.arraycopy(PlayerProfile.BOWLING_STYLES, 0, styles, 1, PlayerProfile.BOWLING_STYLES.length);
     Spinner style = spinner(box, "Bowling style", styles);
     style.setSelection(Math.max(0, Arrays.asList(styles).indexOf(p.bowlingStyle)));
-    box.addView(text("Your stats come from squad places that are you: phone-registered places for your linked account, plus any you mark with “This is me” in Teams.", 12, MUTED, false));
+    box.addView(text("Your stats come from squad places that are you: Google-registered places for your linked account, plus any you mark with “This is me” in Teams.", 12, MUTED, false));
     dialog("Edit profile", box, "Save profile", () -> {
-      profile.saveDetails(val(name), val(phone), val(email));
+      profile.saveDetails(val(name), val(email));
       p.city = val(city);
       p.battingOrder = order.getSelectedItemPosition() == 0 ? "" : orders[order.getSelectedItemPosition()];
       p.battingHand = hand.getSelectedItemPosition() == 0 ? "" : (String) hand.getSelectedItem();
@@ -612,7 +611,7 @@ public class MainActivity extends AppCompatActivity {
   }
 
   private void logout() {
-    new AlertDialog.Builder(this).setTitle("Log out of your phone account?")
+    new AlertDialog.Builder(this).setTitle("Log out of your Google player account?")
         .setMessage("This device stops acting for your player account. Saved matches, teams and recovery codes stay on this phone.")
         .setNegativeButton("Cancel", null)
         .setPositiveButton("Log out", (d, w) -> new Thread(() -> {
@@ -662,9 +661,9 @@ public class MainActivity extends AppCompatActivity {
     String[] items = {"How do I score my first match?", "Who can edit a match?", "How do I add players?",
         "Where are voice commands and the stump cam?", "Contact support"};
     String[] answers = {
-        "Add two teams in My Cricket → Teams, add players by their registered phone numbers, then tap + → Start a match. Hold a run button to record zones and overthrows.",
+        "Add two teams in My Cricket → Teams, add players by their Google emails or player codes, then tap + → Start a match. Hold a run button to record zones and overthrows.",
         "The device workspace decides it. Organizer, Manager, Scorer and Umpire can change a match; Player and Spectator are read-only. Switch it from the profile panel.",
-        "Each player registers once with their phone number on the Boundary website. In Teams, choose Add player by phone and enter their number.",
+        "Each player registers once using Google login on the Boundary website. In Teams, choose Add registered player and enter their Google email or player code.",
         "Switch the workspace to Umpire from the profile panel. Umpire tools then appears in the panel with voice commands and the stump cam."};
     new AlertDialog.Builder(this).setTitle("Get help").setItems(items, (d, w) -> {
       if (w < answers.length) message(items[w], answers[w]);
@@ -1367,7 +1366,7 @@ public class MainActivity extends AppCompatActivity {
             List<String> names = team == first ? selectedFirst : selectedSecond;
             for (String name : names) {
               String id = registeredId(team.id, name);
-              if (id.isEmpty()) { message("Phone registration required", name + " must be added by their registered phone number first."); return; }
+              if (id.isEmpty()) { message("Google registration required", name + " must be added by their Google email or player code first."); return; }
               if (!distinct.add(id)) { message("Duplicate player", "The same registered player cannot play for both sides or occupy two squad places."); return; }
               ids.put(id);
             }
@@ -1382,7 +1381,7 @@ public class MainActivity extends AppCompatActivity {
                 openingBatters(m, first, selectedFirst, cup, fixture);
               });
             } catch (Exception error) { runOnUiThread(() -> {
-              if (!isFinishing() && !isDestroyed()) message("Player registration check", error.getMessage() == null ? "Connect to the internet and check your phone account." : error.getMessage());
+              if (!isFinishing() && !isDestroyed()) message("Player registration check", error.getMessage() == null ? "Connect to the internet and check your Google player account." : error.getMessage());
             }); }
           }, "Boundary-player-check").start();
         }));
@@ -1417,7 +1416,7 @@ public class MainActivity extends AppCompatActivity {
     int eligible = 0;
     for (int i = 0; i < team.players.size(); i++) {
       boolean registered = !registeredId(team.id, team.players.get(i)).isEmpty();
-      CheckBox player = check(box, team.players.get(i) + (registered ? " ? Phone registered" : " ? Registration required"), registered && eligible < size);
+      CheckBox player = check(box, team.players.get(i) + (registered ? " ? Google registered" : " ? Registration required"), registered && eligible < size);
       if (registered) eligible++;
       player.setEnabled(registered); checks.add(player);
     }
@@ -2299,7 +2298,7 @@ public class MainActivity extends AppCompatActivity {
           if (!writable()) return;
           LinearLayout box = form();
           EditText name = field(box, "Team name", "", false);
-          box.addView(text("Save your team, then add players using their registered phone numbers.", 14, MUTED, false));
+          box.addView(text("Save your team, then add players using their Google emails or player codes.", 14, MUTED, false));
           dialog(
               "Register team",
               box,
@@ -2318,7 +2317,7 @@ public class MainActivity extends AppCompatActivity {
     for (Team t : repo.teams()) {
       LinearLayout c =
           card("SQUAD · " + t.players.size() + " players", t.name, String.join(" · ", t.players));
-      action(c, "Add player by phone", () -> {
+      action(c, "Add registered player", () -> {
         if (!writable()) return;
         getPreferences(0).edit().putString("addingPlayerTeam", t.id).apply();
         startActivityForResult(new Intent(this, PlayerAccountActivity.class).putExtra("pick", true), 88);

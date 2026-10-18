@@ -27,15 +27,15 @@
   <div class="intro" id="top">
     <p class="eyebrow">Legal</p>
     <h1>Privacy Policy</h1>
-    <p class="updated">Last updated <time datetime="2026-10-18">18 October 2026</time></p>
+    <p class="updated">Last updated <time datetime="2026-10-19">19 October 2026</time></p>
     <p class="lede">This policy explains what information Boundary collects in its Android scoring app, player registration, community, public match pages and Club Shop, and how we use, store and protect it.</p>
   </div>
 
   <aside class="summary" aria-labelledby="summary-title">
     <h2 id="summary-title">In short</h2>
     <ul>
-      <li>We collect what we need to run accounts, scoring, the community and orders. That includes your verified phone number, display name, match data, posts and delivery details.</li>
-      <li>For player lookup we store a keyed hash of your phone number. Phone numbers are not listed in any public directory.</li>
+      <li>We collect what we need to run accounts, scoring, the community and orders. That includes your verified Google email, display name, match data, posts and delivery details.</li>
+      <li>For player lookup we store a keyed hash of your Google email. Email addresses are not listed in any public directory.</li>
       <li>Razorpay handles card and UPI details. We never receive your full card number, CVV or UPI PIN.</li>
       <li>Public scores, names on scorecards and community posts can be seen by anyone.</li>
       <li>We do not sell personal information, and we do not use advertising or analytics cookies.</li>
@@ -75,10 +75,10 @@
       <h2 id="collect-h"><span class="num">2.</span> Information we collect</h2>
 
       <h3>Account and sign-in</h3>
-      <p>Clerk, our sign-in provider, processes your phone number, one-time verification codes and sign-in sessions. Clerk also holds any name or username you add to your account. We use that name as the author name on your community posts.</p>
+      <p>Clerk, our sign-in provider, processes your Google account identity, email address and sign-in sessions. Clerk also holds any name or username you add to your account. We use that name as the author name on your community posts.</p>
 
       <h3>Player registration</h3>
-      <p>When you register as a player, we store your account identifier, your cricket display name, a keyed hash of your verified phone number, the registration time and the version of the terms you accepted. The hash lets a linked scoring app find you by exact phone number. A linked app that enters your phone number sees your display name and account identifier. Your phone number itself is not shown in any public directory.</p>
+      <p>When you register as a player, we store your account identifier, your cricket display name, a keyed hash of your verified Google email, the registration time and the version of the terms you accepted. The hash lets a linked scoring app find you by exact Google email or player code. A linked app that enters your Google email or player code sees your display name and account identifier. Your Google email itself is not shown in any public directory.</p>
 
       <h3>Device linking</h3>
       <p>When you link the Android app, we store a hash of the device session token, a hash of the requesting network address, expiry times and lookup counters. The app keeps its session token privately on your phone and excludes it from its declared Android backup set.</p>
@@ -90,7 +90,7 @@
       <p>For community posts and replies we store your account identifier, author name, the category, title, city and text you enter, and the time you posted. Posts and replies are public.</p>
 
       <h3>Orders and delivery</h3>
-      <p>For a shop order we store the recipient name, delivery address, city, state, PIN code, your verified contact phone number, the items, amounts and delivery charge, Razorpay order, payment and refund references, order status, timestamps and the terms version you accepted.</p>
+      <p>For a shop order we store the recipient name, delivery address, city, state, PIN code, your Google account email, the items, amounts and delivery charge, Razorpay order, payment and refund references, order status, timestamps and the terms version you accepted.</p>
 
       <h3>Support messages</h3>
       <p>If you contact us, we keep your message, your contact details and any order reference you include so we can reply.</p>
@@ -105,7 +105,7 @@
         <li>Scorebook scanning uses on-device text recognition.</li>
         <li>Replay recordings and exports stay on the phone unless you share them.</li>
         <li>A live stream sends camera video and any enabled microphone audio to the streaming endpoint you configure.</li>
-        <li>The profile name, phone number, email and photo you add in the app are stored privately on the phone. Boundary does not upload them.</li>
+        <li>The profile name, email and photo you add in the app are stored privately on the phone. Boundary does not upload them.</li>
         <li>If you turn on Android backup, Android may back up the local match database and scorebook files under Google's terms. The account session token, your profile details and photo, and the speaker profile are excluded.</li>
         <li>Android sharing sends the content you select to the app or person you choose.</li>
       </ul>
@@ -115,7 +115,7 @@
       <h2 id="use-h"><span class="num">3.</span> How we use information</h2>
       <p>We use information to:</p>
       <ul>
-        <li>sign you in, verify your phone number and confirm player eligibility for new matches;</li>
+        <li>sign you in, verify your Google identity and confirm player eligibility for new matches;</li>
         <li>link your Android app and let it find registered players for squad selection;</li>
         <li>calculate scores and statistics and publish match updates;</li>
         <li>show community posts and replies;</li>
@@ -159,7 +159,7 @@
         <p>We never receive or store your full card number, CVV, UPI PIN or banking passwords.</p>
       </div>
       <ul>
-        <li><strong>What we send to Razorpay.</strong> The order amount and currency, our order reference, and your recipient name and verified phone number to prefill checkout.</li>
+        <li><strong>What we send to Razorpay.</strong> The order amount and currency, our order reference, and your recipient name and Google account email to prefill checkout.</li>
         <li><strong>What we receive from Razorpay.</strong> The Razorpay order and payment identifiers, payment status, amount and currency, and any refund identifier and refund status.</li>
         <li><strong>How we confirm payment.</strong> Our server checks the payment signature, the order owner, the amount, the currency and a captured payment with Razorpay before it marks an order as paid.</li>
       </ul>
@@ -175,10 +175,10 @@
           <tbody>
             <tr><th scope="row"><a href="https://vercel.com/legal/privacy-policy">Vercel</a></th><td>Hosts the website and runs our server functions.</td><td>Requests to the site and API, including IP address and browser details.</td></tr>
             <tr><th scope="row"><a href="https://neon.com/privacy-policy">Neon</a></th><td>Postgres database for our server records.</td><td>Player registrations, device links, match snapshots and encrypted journals, community posts and orders.</td></tr>
-            <tr><th scope="row"><a href="https://clerk.com/legal/privacy">Clerk</a></th><td>Sign-in, phone verification and account sessions. Its sign-in form may show a Cloudflare bot-protection check.</td><td>Phone number, verification codes, account name and session data.</td></tr>
-            <tr><th scope="row"><a href="https://razorpay.com/privacy/">Razorpay</a></th><td>Payments and refunds.</td><td>Payment details, order amount, and the name and phone number used to prefill checkout.</td></tr>
+            <tr><th scope="row"><a href="https://clerk.com/legal/privacy">Clerk</a></th><td>Sign-in, Google identity verification and account sessions. Its sign-in form may show a Cloudflare bot-protection check.</td><td>Google identity, email, account name and session data.</td></tr>
+            <tr><th scope="row"><a href="https://razorpay.com/privacy/">Razorpay</a></th><td>Payments and refunds.</td><td>Payment details, order amount, and the name and email used to prefill checkout.</td></tr>
             <tr><th scope="row"><a href="https://policies.google.com/privacy">Google Fonts</a></th><td>Font delivery on the shop and player registration pages.</td><td>IP address and browser details.</td></tr>
-            <tr><th scope="row">Delivery partners</th><td><span class="ph">[Courier or fulfilment partner names]</span> deliver shop orders.</td><td>Recipient name, delivery address, phone number and parcel details.</td></tr>
+            <tr><th scope="row">Delivery partners</th><td><span class="ph">[Courier or fulfilment partner names]</span> deliver shop orders.</td><td>Recipient name, delivery address, email and parcel details.</td></tr>
           </tbody>
         </table>
       </div>
@@ -190,7 +190,7 @@
         <li><strong>With service providers.</strong> We share information with the providers in <a href="#third-parties">section 7</a> only as needed for their service.</li>
         <li><strong>For delivery.</strong> We give delivery details to authorised fulfilment and delivery partners for paid orders.</li>
         <li><strong>Publicly.</strong> Public scores, player names on scorecards, community posts and replies are visible to other users and to anyone who visits the site.</li>
-        <li><strong>With linked scoring apps.</strong> A linked app that enters a registered player's exact phone number receives that player's display name and account identifier.</li>
+        <li><strong>With linked scoring apps.</strong> A linked app that enters a registered player's exact Google email or player code receives that player's display name and account identifier.</li>
         <li><strong>When the law requires it.</strong> We may disclose information to comply with a legal obligation or a valid request from a government authority.</li>
         <li><strong>With your consent.</strong> We share information in other ways only when you ask us to.</li>
       </ul>
@@ -203,13 +203,13 @@
       <ul>
         <li>HTTPS for all service requests;</li>
         <li>server-side checks of every signed-in request;</li>
-        <li>a keyed hash of registered phone numbers for player lookup, so the lookup table does not hold the numbers themselves;</li>
+        <li>a keyed hash of registered Google emails for player lookup, so the lookup table does not hold the email addresses themselves;</li>
         <li>hashes, not plain values, for device session tokens, network addresses and rate-limit subjects;</li>
         <li>separate encryption for private match recovery journals;</li>
         <li>payment checks of signature, owner, amount, currency and capture before an order is marked as paid;</li>
         <li>rate limits on device linking, player lookup, community posting and shop requests.</li>
       </ul>
-      <p>Order records keep your phone number in readable form, because the delivery partner needs it. No system is completely secure. If a personal data breach affects you, we will inform you and the relevant authorities as the law requires.</p>
+      <p>New orders keep your Google email in readable form for order communication. Historical phone hashes and order contact fields may remain in records created before Google registration replaced phone registration; they are no longer used for player lookup. No system is completely secure. If a personal data breach affects you, we will inform you and the relevant authorities as the law requires.</p>
     </section>
 
     <section id="retention" aria-labelledby="retention-h">

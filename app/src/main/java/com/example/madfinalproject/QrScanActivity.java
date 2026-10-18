@@ -331,7 +331,7 @@ public final class QrScanActivity extends AppCompatActivity {
         counts.setVisibility(View.GONE);
         message.setText(error);
         message.setVisibility(View.VISIBLE);
-        if (Social.LINK_FIRST.equals(error)) actions.addView(Ui.pill(this, p, "Link phone account", true, () -> {
+        if (Social.LINK_FIRST.equals(error)) actions.addView(Ui.pill(this, p, "Link Google account", true, () -> {
           sheet.dismiss();
           startActivity(new Intent(this, PlayerAccountActivity.class));
         }), 0, new LinearLayout.LayoutParams(-1, -2));

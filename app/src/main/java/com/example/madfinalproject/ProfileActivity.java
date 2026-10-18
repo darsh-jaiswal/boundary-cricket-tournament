@@ -534,11 +534,11 @@ public final class ProfileActivity extends AppCompatActivity {
     title.setPadding(0, dp(12), 0, dp(6));
     card.addView(title);
     card.addView(Ui.text(this, "Your matches, stats and teams appear here once Boundary knows which players are you. "
-        + "Link your phone account, or mark your squad places with \"This is me\" in My Cricket > Teams.", 14, p.muted, false));
+        + "Link your Google player account, or mark your squad places with \"This is me\" in My Cricket > Teams.", 14, p.muted, false));
     if (!PlayerAccount.linked(this)) {
       LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-2, -2);
       lp.topMargin = dp(14);
-      card.addView(Ui.pill(this, p, "Link phone account", true,
+      card.addView(Ui.pill(this, p, "Link Google account", true,
           () -> startActivity(new Intent(this, PlayerAccountActivity.class))), lp);
     }
     addToBody(card, 10);
@@ -998,11 +998,11 @@ public final class ProfileActivity extends AppCompatActivity {
     }
     BottomSheetDialog[] dialog = new BottomSheetDialog[1];
     if (account.isEmpty()) {
-      TextView why = Ui.text(this, "Link your phone account to get a QR code that teammates can scan to follow you.", 15, p.ink, false);
+      TextView why = Ui.text(this, "Link your Google player account to get a QR code that teammates can scan to follow you.", 15, p.ink, false);
       why.setGravity(Gravity.CENTER);
       why.setPadding(0, dp(24), 0, dp(16));
       card.addView(why);
-      card.addView(Ui.pill(this, p, "Link phone account", true, () -> {
+      card.addView(Ui.pill(this, p, "Link Google account", true, () -> {
         if (dialog[0] != null) dialog[0].dismiss();
         startActivity(new Intent(this, PlayerAccountActivity.class));
       }));
@@ -1165,7 +1165,7 @@ public final class ProfileActivity extends AppCompatActivity {
 
   private void copyLink(String account) {
     if (account.isEmpty()) {
-      toast("Link your phone account to get a profile link");
+      toast("Link your Google player account to get a profile link");
       return;
     }
     ClipboardManager clipboard = (ClipboardManager) getSystemService(CLIPBOARD_SERVICE);

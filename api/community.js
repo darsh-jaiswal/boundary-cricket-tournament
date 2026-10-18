@@ -1,6 +1,7 @@
 import { guardRequest, rateLimit, securityError } from '../server/security.js';
 import { neon } from '@neondatabase/serverless';
 import { createClerkClient } from '@clerk/backend';
+import { googleEmail } from '../server/player-identity.js';
 import { randomUUID } from 'node:crypto';
 
 const categories = new Set(['players','opponents','umpires','scorers','grounds','coaches','updates']);
@@ -38,8 +39,8 @@ export default async function handler(req, res) {
     if (!auth?.userId) return res.status(401).json({error:'Sign in to post or reply'});
     await rateLimit(res,'community:account-write',auth.userId,20);
     const user = await clerk.users.getUser(auth.userId);
-    if (!user.phoneNumbers?.some(phone => phone.verification?.status === 'verified'))
-      return res.status(403).json({error:'Verify a phone number on your account before joining the player community'});
+    if (!googleEmail(user))
+      return res.status(403).json({error:'Sign in with Google before joining the player community'});
     let body;
     try { body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body; }
     catch { return res.status(400).json({error:'Invalid request'}); }
