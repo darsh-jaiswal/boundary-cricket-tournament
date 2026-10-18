@@ -36,9 +36,9 @@ function renderProducts() {
     for(const v of p.variants) {const option=el('option',`${v.material} · ${v.size}`);option.value=v.id;select.append(option);}
     const label=el('label','Material / size');label.append(select);
     const price=el('p',undefined,'price'),availability=el('p'),add=el('button','Add to bag');
-    const update=()=>{const v=p.variants.find(v=>v.id===select.value);price.textContent=v.pricePaise>0?money(v.pricePaise):'Coming soon';availability.textContent=v.available&&catalog.salesEnabled?`${v.colour} · In stock`: 'Availability will be confirmed before sale';add.disabled=busy||!v.available||!catalog.salesEnabled;};
+    const update=()=>{const v=p.variants.find(v=>v.id===select.value);price.textContent=v.pricePaise>0?money(v.pricePaise):'Coming soon';availability.textContent=v.available&&catalog.salesEnabled?`${v.colour} · In stock`: 'Save to your bag ? stock confirmation pending';add.disabled=busy||!Number.isSafeInteger(v.pricePaise)||v.pricePaise<=0;};
     select.onchange=update;
-    add.onclick=()=>{const v=p.variants.find(v=>v.id===select.value);if(!v?.available||!catalog.salesEnabled)return;const line=bag.find(i=>i.variantId===v.id);if(line){if(line.quantity>=10)return;line.quantity++;}else{if(bag.length>=10){message('Your bag holds up to ten product options.',true);return;}bag.push({variantId:v.id,quantity:1});}saveBag();message(p.name+' added to your bag.');};
+    add.onclick=()=>{const v=p.variants.find(v=>v.id===select.value);if(!v||!Number.isSafeInteger(v.pricePaise)||v.pricePaise<=0)return;const line=bag.find(i=>i.variantId===v.id);if(line){if(line.quantity>=10)return;line.quantity++;}else{if(bag.length>=10){message('Your bag holds up to ten product options.',true);return;}bag.push({variantId:v.id,quantity:1});}saveBag();message(p.name+' added to your bag.');};
     card.append(label,price,availability,add);update();$('#products').append(card);
   }
 }
@@ -48,7 +48,7 @@ function renderBag() {
     const v=variants().find(v=>v.id===line.variantId);const row=el('div',undefined,'cart-row'),description=el('div');
     description.append(el('strong',v?.name||'Unavailable item'),el('div',v?`${v.material} · ${v.size}`:'Remove this item','subtle'));
     if(v) {total+=v.pricePaise*line.quantity;description.append(el('div',money(v.pricePaise*line.quantity)));}
-    if(!v?.available) {valid=false;description.append(el('div','Currently unavailable','error'));}
+    if(!v?.available) {valid=false;description.append(el('div','Saved to bag ? not reserved; stock confirmation pending','subtle'));}
     const controls=el('div'),qty=el('input');qty.type='number';qty.min='1';qty.max='10';qty.value=line.quantity;qty.setAttribute('aria-label','Quantity for '+(v?.name||'item'));qty.disabled=busy;
     qty.onchange=()=>{const n=Number(qty.value);if(Number.isInteger(n)&&n>=1&&n<=10){line.quantity=n;saveBag();}else qty.value=line.quantity;};
     const remove=el('button','Remove');remove.disabled=busy;remove.onclick=()=>{bag=bag.filter(i=>i!==line);saveBag();};controls.append(qty,remove);row.append(description,controls);target.append(row);
@@ -109,7 +109,7 @@ $('#checkout').onsubmit=async event=>{
 };
 try {
   catalog=await api();renderProducts();renderBag();
-  message(catalog.salesEnabled?'Choose your kit. Prices and availability are checked again at checkout.':'Collection preview — prices, stock and delivery are being confirmed. Payments are not open yet.');
+  message(catalog.salesEnabled?'Choose your kit. Prices and availability are checked again at checkout.':'Collection preview — prices, stock and delivery are being confirmed. You can save items to your bag. Checkout opens after stock and delivery are confirmed.');
   $('#delivery-note').textContent=catalog.dispatchDays?`Dispatch estimate: ${catalog.dispatchDays} days. For delivery, exchanges or refunds contact store support.`:'Delivery and exchange terms will appear before checkout opens.';
   if(catalog.supportEmail){const link=el('a',catalog.supportEmail);link.href='mailto:'+catalog.supportEmail;$('#support').append('Store support: ',link);}
   await account(catalog.publishableKey,$('#account'),value=>{clerk=value;renderBag();loadOrders();});
