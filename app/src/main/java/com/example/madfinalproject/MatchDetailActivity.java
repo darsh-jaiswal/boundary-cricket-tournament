@@ -8,8 +8,14 @@ import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
 import android.net.Uri;
 import android.os.Bundle;
+import android.text.Selection;
+import android.text.Spannable;
 import android.text.SpannableStringBuilder;
+import android.text.Spanned;
+import android.text.TextPaint;
 import android.text.TextUtils;
+import android.text.method.LinkMovementMethod;
+import android.text.style.ClickableSpan;
 import android.text.style.ForegroundColorSpan;
 import android.text.style.RelativeSizeSpan;
 import android.text.style.StyleSpan;
@@ -28,6 +34,7 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
 import com.example.madfinalproject.data.Repository;
 import com.example.madfinalproject.domain.Career;
+import com.example.madfinalproject.domain.Cricket.Innings;
 import com.example.madfinalproject.domain.Cricket.Match;
 import com.example.madfinalproject.domain.Cricket.Tournament;
 import com.example.madfinalproject.domain.MatchReport;
@@ -441,6 +448,7 @@ public final class MatchDetailActivity extends AppCompatActivity {
     card.setBackground(Ui.round(p.surface, dp(22)));
     card.setElevation(p.dark ? 0 : dp(1));
     card.setPadding(dp(6), dp(6), dp(6), dp(18));
+    opensPlayer(card, team, name);
 
     FrameLayout image = new FrameLayout(this);
     image.setBackground(Ui.round(p.accentSoft, dp(17)));
@@ -548,7 +556,9 @@ public final class MatchDetailActivity extends AppCompatActivity {
         new String[] {"R", "B", "4s", "6s", "SR"}, BAT_COLUMNS, true, 0));
     for (MatchReport.BatterLine b : sc.batters) {
       LinearLayout who = Ui.column(this);
-      who.addView(Ui.text(this, b.name + (b.notOut() ? "*" : ""), 14, p.accent, true));
+      TextView name = Ui.text(this, b.name + (b.notOut() ? "*" : ""), 14, p.accent, true);
+      opensPlayer(name, b.team, b.name);
+      who.addView(name);
       TextView how = Ui.text(this, b.dismissal, 12, p.muted, false);
       how.setPadding(0, dp(3), dp(6), 0);
       who.addView(how);
@@ -567,7 +577,7 @@ public final class MatchDetailActivity extends AppCompatActivity {
       TextView label = Ui.text(this, "Yet to bat:", 13, p.ink, true);
       label.setPadding(0, dp(14), 0, dp(4));
       body.addView(label);
-      body.addView(Ui.text(this, TextUtils.join(", ", sc.yetToBat), 13, p.muted, false));
+      body.addView(linked(players(sc.yetToBat, sc.battingTeam, ", "), 13, p.muted));
     }
 
     if (!sc.bowlers.isEmpty()) {
@@ -575,10 +585,13 @@ public final class MatchDetailActivity extends AppCompatActivity {
       body.addView(gap);
       body.addView(tableRow(Ui.text(this, "Bowlers", 13, p.muted, true),
           new String[] {"O", "M", "R", "W", "Eco"}, BOWL_COLUMNS, true, 3));
-      for (MatchReport.BowlerLine b : sc.bowlers)
-        body.addView(tableRow(Ui.text(this, b.name, 14, p.accent, true), new String[] {b.overs(),
+      for (MatchReport.BowlerLine b : sc.bowlers) {
+        TextView name = Ui.text(this, b.name, 14, p.accent, true);
+        opensPlayer(name, b.team, b.name);
+        body.addView(tableRow(name, new String[] {b.overs(),
             String.valueOf(b.maidens), String.valueOf(b.runs), String.valueOf(b.wickets), rate(b.economy(), 2)},
             BOWL_COLUMNS, false, 3));
+      }
     }
 
     if (!sc.falls.isEmpty()) {
@@ -597,6 +610,7 @@ public final class MatchDetailActivity extends AppCompatActivity {
         s.setSpan(new ForegroundColorSpan(p.muted), 0, s.length(), 0);
         s.append(f.batter);
         who.setText(s);
+        opensPlayer(who, sc.battingTeam, f.batter);
         row.addView(who, Ui.weight(1));
         TextView score = Ui.text(this, "", 14, p.ink, false);
         score.setText(styled(String.valueOf(f.runs), "  (" + f.over + " Ov)"));
@@ -690,11 +704,12 @@ public final class MatchDetailActivity extends AppCompatActivity {
 
     LinearLayout middle = Ui.column(this);
     middle.setPadding(dp(12), dp(12), dp(10), dp(14));
-    String bowlers = over.bowlers.isEmpty() ? "" : TextUtils.join(" & ", over.bowlers);
-    String batters = TextUtils.join(", ", over.batters);
-    String who = bowlers.isEmpty() ? batters : batters.isEmpty() ? bowlers : bowlers + " to " + batters;
-    if (!who.isEmpty()) {
-      TextView names = Ui.text(this, who, 14, p.ink, false);
+    if (!over.bowlers.isEmpty() || !over.batters.isEmpty()) {
+      Innings in = match.innings.get(oversInnings);
+      SpannableStringBuilder who = players(over.bowlers, in.bowlingTeam, " & ");
+      if (!over.bowlers.isEmpty() && !over.batters.isEmpty()) who.append(" to ");
+      who.append(players(over.batters, in.battingTeam, ", "));
+      TextView names = linked(who, 14, p.ink);
       names.setPadding(0, 0, 0, dp(10));
       middle.addView(names);
     }
@@ -841,6 +856,7 @@ public final class MatchDetailActivity extends AppCompatActivity {
     cell.setPadding(dp(12), dp(12), dp(12), dp(12));
     cell.setMinimumHeight(dp(68));
     if (name == null) return cell;
+    opensPlayer(cell, team, name);
     View avatar = Ui.avatar(this, p, isOwner(team, name) ? ownerPhoto : null, name, 44);
     LinearLayout text = Ui.column(this);
     text.setGravity(end ? Gravity.END : Gravity.START);
@@ -895,6 +911,41 @@ public final class MatchDetailActivity extends AppCompatActivity {
   }
 
   private boolean isOwner(String team, String name) { return ownerKeys.contains(Career.key(team, name)); }
+
+  /** Makes a view showing one player open that player's stats for the team they played for here. */
+  private void opensPlayer(View v, String team, String name) {
+    v.setOnClickListener(x -> PerformanceActivity.open(this, team, name));
+    v.setContentDescription("Open " + name + "'s stats");
+    pressable(v);
+  }
+
+  /** Names joined by {@code separator}, each opening that player's stats; the text keeps its plain colour. */
+  private SpannableStringBuilder players(List<String> names, String team, String separator) {
+    SpannableStringBuilder s = new SpannableStringBuilder();
+    for (int i = 0; i < names.size(); i++) {
+      String name = names.get(i);
+      if (i > 0) s.append(separator);
+      int start = s.length();
+      s.append(name);
+      s.setSpan(new ClickableSpan() {
+        @Override public void onClick(View widget) {
+          Selection.removeSelection((Spannable) ((TextView) widget).getText());
+          PerformanceActivity.open(MatchDetailActivity.this, team, name);
+        }
+
+        @Override public void updateDrawState(TextPaint paint) {}
+      }, start, s.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+    }
+    return s;
+  }
+
+  /** A text view whose name spans from {@link #players} respond to taps. */
+  private TextView linked(CharSequence text, float size, int color) {
+    TextView t = Ui.text(this, "", size, color, false);
+    t.setText(text);
+    t.setMovementMethod(LinkMovementMethod.getInstance());
+    return t;
+  }
 
   private void empty(String message) {
     TextView t = Ui.text(this, message, 15, p.muted, false);

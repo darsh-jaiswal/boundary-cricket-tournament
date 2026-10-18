@@ -75,10 +75,11 @@ import java.util.function.IntConsumer;
 /**
  * My Performance: the owner's batting, bowling and head-to-head analytics, laid out like the reference screens
  * (photo header, Batting / Bowling / Compare tabs, one block per analysis) in Boundary's palette. Sections whose
- * data Boundary does not record are left out, and undefined numbers show as "-".
+ * data Boundary does not record are left out, and undefined numbers show as "-". Given a player and team, it shows
+ * that squad place instead, unless the place is the owner's own.
  */
 public final class PerformanceActivity extends AppCompatActivity {
-  public static final String EXTRA_TAB = "tab", EXTRA_SHEET = "sheet";
+  public static final String EXTRA_TAB = "tab", EXTRA_SHEET = "sheet", EXTRA_PLAYER = "player", EXTRA_TEAM = "team";
   private static final String[] TABS = {"Batting", "Bowling", "Compare"};
   private static final String[] INNINGS = {"All innings", "1st innings", "2nd innings"};
   private static final String[] RUN_LABELS = {"Dots", "1s", "2s", "3s", "4s", "6s"};
@@ -87,8 +88,9 @@ public final class PerformanceActivity extends AppCompatActivity {
   private Ui.Palette p;
   private Repository repo;
   private ProfileStore me;
-  private PlayerProfile mine;
+  private PlayerProfile profile;
   private Career.Who who;
+  private boolean owner;
   private List<Match> matches;
   private Map<String, PlayerProfile> profiles;
   private final Career.Filter filter = new Career.Filter();
@@ -110,8 +112,14 @@ public final class PerformanceActivity extends AppCompatActivity {
     p = Ui.palette(this);
     repo = new Repository(this);
     me = new ProfileStore(this);
-    mine = me.attributes();
     who = me.who(repo);
+    String player = getIntent().getStringExtra(EXTRA_PLAYER), team = getIntent().getStringExtra(EXTRA_TEAM);
+    owner = TextUtils.isEmpty(player) || TextUtils.isEmpty(team) || who.keys.contains(Career.key(team, player));
+    if (owner) profile = me.attributes();
+    else {
+      who = new Career.Who(player).add(team, player);
+      profile = ProfileStore.find(repo, team, player);
+    }
     matches = repo.matches();
     profiles = ProfileStore.all(repo, me);
     String requested = getIntent().getStringExtra(EXTRA_TAB);
@@ -130,6 +138,11 @@ public final class PerformanceActivity extends AppCompatActivity {
     build();
     if (saved == null && "filter".equals(getIntent().getStringExtra(EXTRA_SHEET)) && !who.keys.isEmpty())
       root.post(this::filterSheet);
+  }
+
+  /** Opens the stats of one squad place; the owner's own places open the owner's view. */
+  public static void open(Context context, String team, String name) {
+    context.startActivity(new Intent(context, PerformanceActivity.class).putExtra(EXTRA_TEAM, team).putExtra(EXTRA_PLAYER, name));
   }
 
   @Override protected void onSaveInstanceState(Bundle out) {
@@ -259,7 +272,7 @@ public final class PerformanceActivity extends AppCompatActivity {
     row.setPadding(dp(16), dp(2), dp(16), dp(22));
     int size = dp(116);
     File photo = me.photo();
-    Bitmap bitmap = photo.exists() ? Ui.decode(photo, size) : null;
+    Bitmap bitmap = owner && photo.exists() ? Ui.decode(photo, size) : null;
     View picture;
     if (bitmap != null) {
       ImageView image = new ImageView(this);
@@ -286,16 +299,16 @@ public final class PerformanceActivity extends AppCompatActivity {
     heroDetails.removeAllViews();
     boolean batting = !tab.equals("Bowling"), bowling = !tab.equals("Batting");
     List<String[]> lines = new ArrayList<>();
-    if (batting && !mine.battingHand.isEmpty()) lines.add(new String[] {"Batting style", mine.battingHand});
-    if (batting && !mine.battingOrder.isEmpty()) lines.add(new String[] {"Batting order", mine.battingOrder});
-    if (bowling && !mine.bowlingStyle.isEmpty()) lines.add(new String[] {"Bowling style", mine.bowlingStyle});
+    if (batting && !TextUtils.isEmpty(profile.battingHand)) lines.add(new String[] {"Batting style", profile.battingHand});
+    if (batting && !TextUtils.isEmpty(profile.battingOrder)) lines.add(new String[] {"Batting order", profile.battingOrder});
+    if (bowling && !TextUtils.isEmpty(profile.bowlingStyle)) lines.add(new String[] {"Bowling style", profile.bowlingStyle});
     for (String[] line : lines) {
       TextView label = Ui.text(this, line[0], 14, 0xd9ffffff, false);
       label.setPadding(0, heroDetails.getChildCount() == 0 ? 0 : dp(14), 0, dp(4));
       heroDetails.addView(label);
       heroDetails.addView(Ui.text(this, line[1], 16, WHITE, true));
     }
-    if (lines.isEmpty())
+    if (lines.isEmpty() && owner)
       heroDetails.addView(Ui.text(this, "Add your batting and bowling style in your cricket profile.", 14, 0xd9ffffff, false));
   }
 
@@ -464,7 +477,7 @@ public final class PerformanceActivity extends AppCompatActivity {
     t.setPadding(0, dp(20), 0, dp(10));
     into.addView(t);
     if (codes.size() <= 1) {
-      into.addView(Ui.text(this, "Not recorded in your matches yet.", 14, p.muted, false));
+      into.addView(Ui.text(this, "Not recorded in " + (owner ? "your" : first() + "'s") + " matches yet.", 14, p.muted, false));
       return;
     }
     HorizontalScrollView strip = new HorizontalScrollView(this);
@@ -1079,7 +1092,8 @@ public final class PerformanceActivity extends AppCompatActivity {
 
   private void batting() {
     if (career.batting.isEmpty()) {
-      empty("No batting innings yet", "Innings you bat in show up here once a scored match includes you.");
+      empty("No batting innings yet", owner ? "Innings you bat in show up here once a scored match includes you."
+          : "Innings " + first() + " bats in show up here once a scored match includes them.");
       return;
     }
     battingForm();
@@ -1158,7 +1172,7 @@ public final class PerformanceActivity extends AppCompatActivity {
         if (b.batterOut) shots.add(new WagonWheelView.Shot(own ? b.zone : -1, own ? b.batRuns : 0, true));
         else if (own && b.faced()) shots.add(new WagonWheelView.Shot(b.zone, b.batRuns, false));
       }
-      wheel(body, shots, "LHB".equals(mine.battingHand), only, redraw);
+      wheel(body, shots, "LHB".equals(profile.battingHand), only, redraw);
       String best = Career.bestZone(Career.zoneRuns(struck(balls)));
       insights(body);
       if (best.isEmpty()) note(body, "No shot directions were recorded for this selection.");
@@ -1395,7 +1409,8 @@ public final class PerformanceActivity extends AppCompatActivity {
 
   private void bowling() {
     if (career.bowling.isEmpty()) {
-      empty("No bowling innings yet", "Innings you bowl in show up here once a scored match includes you.");
+      empty("No bowling innings yet", owner ? "Innings you bowl in show up here once a scored match includes you."
+          : "Innings " + first() + " bowls in show up here once a scored match includes them.");
       return;
     }
     bowlingForm();
@@ -1688,14 +1703,15 @@ public final class PerformanceActivity extends AppCompatActivity {
     LinearLayout box = block();
     box.setPadding(dp(16), dp(18), dp(16), dp(18));
     LinearLayout cards = Ui.row(this);
-    cards.addView(card(ownerPicture(), first(), null, null), new LinearLayout.LayoutParams(0, -2, 1));
+    cards.addView(card(playerPicture(), first(), null, null), new LinearLayout.LayoutParams(0, -2, 1));
     cards.addView(versus(), new LinearLayout.LayoutParams(dp(60), -2));
     View picture = rival == null ? new Silhouette(this, p) : initialsPicture(rival[1]);
     cards.addView(card(picture, rival == null ? "Select player" : rival[1], rival == null ? null : rival[0], this::pickRival),
         new LinearLayout.LayoutParams(0, -2, 1));
     box.addView(cards);
     if (rival == null) {
-      TextView hint = Ui.text(this, "Pick a player from your saved teams to compare your numbers side by side.", 14, p.muted, false);
+      TextView hint = Ui.text(this, owner ? "Pick a player from your saved teams to compare your numbers side by side."
+          : "Pick a player from your saved teams to compare with " + first() + " side by side.", 14, p.muted, false);
       hint.setGravity(Gravity.CENTER);
       hint.setPadding(dp(8), dp(16), dp(8), 0);
       box.addView(hint);
@@ -1750,9 +1766,9 @@ public final class PerformanceActivity extends AppCompatActivity {
     return card;
   }
 
-  private View ownerPicture() {
+  private View playerPicture() {
     File photo = me.photo();
-    Bitmap bitmap = photo.exists() ? Ui.decode(photo, dp(160)) : null;
+    Bitmap bitmap = owner && photo.exists() ? Ui.decode(photo, dp(160)) : null;
     if (bitmap != null) {
       ImageView image = new ImageView(this);
       image.setImageBitmap(bitmap);
