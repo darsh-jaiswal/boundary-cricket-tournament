@@ -33,7 +33,9 @@ export async function guardRequest(req,res,route,maxBytes=12000) {
     if(typeof type!=='string'||!/^application\/json(?:\s*;|$)/i.test(type))throw new HttpError(415,'Use application/json');
     const declared=req.headers['content-length'];
     if(declared!==undefined&&(!/^\d+$/.test(String(declared))||Number(declared)>maxBytes))throw new HttpError(413,'Request is too large');
-    if(req.body!==undefined&&Buffer.byteLength(typeof req.body==='string'?req.body:JSON.stringify(req.body),'utf8')>maxBytes)
+    let body;
+    try { body=req.body; } catch { throw new HttpError(400,'Invalid JSON'); }
+    if(body!==undefined&&Buffer.byteLength(typeof body==='string'?body:JSON.stringify(body),'utf8')>maxBytes)
       throw new HttpError(413,'Request is too large');
   }
   const ip=clientIp(req);
