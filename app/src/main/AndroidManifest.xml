@@ -35,6 +35,7 @@
         <activity android:name=".PerformanceActivity" android:exported="false" android:theme="@style/Theme.Boundary.Main" />
         <activity android:name=".ProfilePhotoActivity" android:exported="false" android:theme="@style/Theme.Boundary.Main" />
         <activity android:name=".MatchDetailActivity" android:exported="false" android:theme="@style/Theme.Boundary.Main" />
+        <activity android:name=".QrScanActivity" android:exported="false" android:theme="@style/Theme.Boundary.Main" />
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.files"
