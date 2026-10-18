@@ -219,7 +219,7 @@ public final class Cricket {
   public static final class Innings implements Serializable {
     private static final long serialVersionUID = 1L;
     public String battingTeam, bowlingTeam, opener, partner;
-    public int target;
+    public int target, ballsLimit, wicketLimit;
     public ArrayList<Event> events = new ArrayList<>();
 
     public Innings(String a, String b, String p, String q, int target) {
@@ -250,7 +250,7 @@ public final class Cricket {
       s.striker = opener;
       s.nonStriker = partner;
       s.target = initialTarget;
-      s.maxBalls = r.overs * r.ballsPerOver;
+      s.maxBalls = ballsLimit > 0 ? ballsLimit : r.overs * r.ballsPerOver;
       s.bat(opener);
       s.bat(partner);
       boolean endedEarly = false;
@@ -327,7 +327,7 @@ public final class Cricket {
         s.closed =
             endedEarly || (s.target > 0 && s.runs >= s.target)
                 || s.legal >= s.maxBalls
-                || s.wickets >= r.players - (r.lastMan ? 0 : 1);
+                || s.wickets >= (wicketLimit > 0 ? wicketLimit : r.players - (r.lastMan ? 0 : 1));
         if (progress != null && e.kind == Kind.BALL)
           progress.accept(new Progress(s, legalBefore, runsBefore, wicketsBefore,
               strikerBefore, nonStrikerBefore, effectiveBowler, e));
@@ -461,25 +461,89 @@ public final class Cricket {
     }
 
     public int activeIndex() {
-      return innings.size() > 1 && !innings.get(0).state(rules).closed ? 0 : innings.size() - 1;
+      if (innings.size() >= 2 && mainWinner() != null) return 1;
+      int decidedPair = decidingPairStart();
+      if (decidedPair > 0) return decidedPair + 1;
+      for (int i = 0; i < innings.size() - 1; i++)
+        if (!stateAt(i).closed) return i;
+      return innings.size() - 1;
+    }
+
+    public State stateAt(int index) {
+      Innings in = innings.get(index);
+      return in.state(rules, index % 2 == 1 ? stateAt(index - 1).runs + 1 : in.target);
     }
 
     public State state() {
-      return activeIndex() == 1
-          ? current().state(rules, innings.get(0).state(rules).runs + 1)
-          : current().state(rules);
+      return stateAt(activeIndex());
+    }
+
+    public List<Progress> progressAt(int index) {
+      int initialTarget = index % 2 == 1 ? stateAt(index - 1).runs + 1 : innings.get(index).target;
+      return innings.get(index).progress(rules, initialTarget);
+    }
+
+    public boolean mainCompleted() {
+      return innings.size() >= 2 && stateAt(0).closed && stateAt(1).closed;
+    }
+
+    private String mainWinner() {
+      if (!mainCompleted()) return null;
+      State second = stateAt(1);
+      if (second.runs >= second.target) return innings.get(1).battingTeam;
+      if (second.runs < second.target - 1) return innings.get(0).battingTeam;
+      return null;
+    }
+
+    public String winner() {
+      if (!mainCompleted()) return null;
+      String regulationWinner = mainWinner();
+      if (regulationWinner != null) return regulationWinner;
+      for (int i = 2; i + 1 < innings.size(); i += 2) {
+        if (!stateAt(i).closed || !stateAt(i + 1).closed) return null;
+        State chase = stateAt(i + 1);
+        if (chase.runs >= chase.target) return innings.get(i + 1).battingTeam;
+        if (chase.runs < chase.target - 1) return innings.get(i).battingTeam;
+      }
+      return null;
+    }
+
+    public int decidingPairStart() {
+      if (!mainCompleted()) return -1;
+      State mainChase = stateAt(1);
+      if (mainChase.runs >= mainChase.target || mainChase.runs < mainChase.target - 1) return 0;
+      for (int i = 2; i + 1 < innings.size(); i += 2) {
+        if (!stateAt(i).closed || !stateAt(i + 1).closed) return -1;
+        State chase = stateAt(i + 1);
+        if (chase.runs >= chase.target || chase.runs < chase.target - 1) return i;
+      }
+      return -1;
+    }
+
+    public boolean canStartSuperOver() {
+      return mainCompleted() && winner() == null && innings.size() % 2 == 0
+          && stateAt(innings.size() - 1).closed;
+    }
+
+    public boolean canStartSuperChase() {
+      return innings.size() > 2 && innings.size() % 2 == 1
+          && winner() == null && activeIndex() == innings.size() - 1
+          && stateAt(innings.size() - 1).closed;
     }
 
     public String result() {
-      if (innings.size() < 2 || !state().closed) return "Live";
-      State a = innings.get(0).state(rules), b = state();
-      if (b.runs >= b.target)
-        return teamB
-            + " won by "
-            + Math.max(0, rules.players - (rules.lastMan ? 0 : 1) - b.wickets)
-            + " wickets";
-      if (b.runs == b.target - 1) return "Match tied";
-      return teamA + " won by " + Math.max(0, b.target - 1 - b.runs) + " runs";
+      if (!mainCompleted()) return "Live";
+      String winner = winner();
+      if (winner != null) {
+        if (decidingPairStart() > 0) return winner + " won in Super Over";
+        State b = stateAt(1);
+        if (b.runs >= b.target)
+          return winner + " won by "
+              + Math.max(0, rules.players - (rules.lastMan ? 0 : 1) - b.wickets) + " wickets";
+        return winner + " won by " + Math.max(0, b.target - 1 - b.runs) + " runs";
+      }
+      if (innings.size() % 2 == 1 || !stateAt(innings.size() - 1).closed) return "Live";
+      return innings.size() == 2 ? "Match tied" : "Super Over tied";
     }
 
     public void add(Event e) {
@@ -513,9 +577,21 @@ public final class Cricket {
         e.bowler = s.bowler;
       }
       if (e.kind == Kind.BOWLER) {
+        if (s.closed) throw new IllegalArgumentException("This innings has finished.");
         ArrayList<String> bowlingRoster = current().bowlingTeam.equals(teamA) ? rosterA : rosterB;
         if (!bowlingRoster.isEmpty() && !bowlingRoster.contains(e.player))
           throw new IllegalArgumentException("Bowler is not in the playing squad.");
+        Bowling bowled = s.bowling.get(e.player);
+        if (bowled != null && bowled.balls >= rules.bowlerOvers * rules.ballsPerOver)
+          throw new IllegalArgumentException("This bowler has reached the over limit.");
+        List<Progress> deliveries = progressAt(activeIndex());
+        if (s.legal > 0 && s.legal % rules.ballsPerOver == 0) {
+          int priorOverStart = s.legal - rules.ballsPerOver;
+          for (Progress delivery : deliveries)
+            if (delivery.legalBefore >= priorOverStart && delivery.legalBefore < s.legal
+                && e.player.equals(delivery.bowler))
+              throw new IllegalArgumentException("A bowler from the previous over cannot bowl this over.");
+        }
       }
       if (e.kind == Kind.BATTERS) {
         ArrayList<String> battingRoster = current().battingTeam.equals(teamA) ? rosterA : rosterB;
@@ -581,6 +657,35 @@ public final class Cricket {
         throw new IllegalArgumentException("Finish the first innings before starting the chase.");
       innings.add(new Innings(teamB, teamA, p, q, state().runs + 1));
       revision++;
+    }
+
+    public void startSuperOver(String first, String p, String q) {
+      if (!canStartSuperOver())
+        throw new IllegalArgumentException("Finish a tied pair of innings first.");
+      if (!first.equals(teamA) && !first.equals(teamB))
+        throw new IllegalArgumentException("Choose one of the match teams.");
+      addSuperInnings(first, first.equals(teamA) ? teamB : teamA, p, q, 0);
+    }
+
+    public void startSuperChase(String p, String q) {
+      if (!canStartSuperChase())
+        throw new IllegalArgumentException("Finish the first Super Over innings first.");
+      Innings previous = innings.get(innings.size() - 1);
+      addSuperInnings(previous.bowlingTeam, previous.battingTeam, p, q,
+          stateAt(innings.size() - 1).runs + 1);
+    }
+
+    private void addSuperInnings(String batting, String bowling, String p, String q, int target) {
+      ArrayList<String> roster = batting.equals(teamA) ? rosterA : rosterB;
+      if (p == null || q == null || p.isEmpty() || q.isEmpty() || p.equals(q)
+          || !roster.isEmpty() && (!roster.contains(p) || !roster.contains(q)))
+        throw new IllegalArgumentException("Choose two different playing batters.");
+      Innings next = new Innings(batting, bowling, p, q, target);
+      next.ballsLimit = rules.ballsPerOver;
+      next.wicketLimit = 2;
+      innings.add(next);
+      revision++;
+      updated = System.currentTimeMillis();
     }
   }
 
@@ -701,12 +806,7 @@ public final class Cricket {
       if (f.a.equals("BYE")) return f.b;
       if (f.b.equals("BYE")) return f.a;
       for (Match m : matches)
-        if (m.id.equals(f.matchId) && m.innings.size() == 2 && m.state().closed) {
-          State s = m.state();
-          if (s.runs >= s.target) return m.teamB;
-          if (s.runs < s.target - 1) return m.teamA;
-          return null;
-        }
+        if (m.id.equals(f.matchId)) return m.winner();
       return null;
     }
   }
@@ -730,7 +830,8 @@ public final class Cricket {
       rows.put(team, r);
     }
     for (Match m : matches) {
-      if (!m.tournament.equals(t.id) || m.innings.size() != 2 || !m.state().closed) continue;
+      if (!m.tournament.equals(t.id) || !m.mainCompleted()
+          || "Live".equals(m.result())) continue;
       if (t.format == Format.GROUPS) {
         boolean groupMatch = false;
         for (Fixture fixture : t.fixtures)
@@ -739,7 +840,7 @@ public final class Cricket {
       }
       Row a = rows.get(m.teamA), b = rows.get(m.teamB);
       if (a == null || b == null) continue;
-      State x = m.innings.get(0).state(m.rules), y = m.state();
+      State x = m.stateAt(0), y = m.stateAt(1);
       a.played++;
       b.played++;
       int xb = x.wickets >= m.rules.players - 1 ? x.maxBalls : x.legal,
@@ -756,15 +857,16 @@ public final class Cricket {
       b.ballsAgainst += xb;
       b.oversFor += yb / (double) m.rules.ballsPerOver;
       b.oversAgainst += xb / (double) m.rules.ballsPerOver;
-      if (y.runs >= y.target) {
-        b.won++;
-        b.points += 2;
-        a.lost++;
-      } else if (y.runs == y.target - 1) {
+      String winner = m.winner();
+      if (winner == null) {
         a.tied++;
         b.tied++;
         a.points++;
         b.points++;
+      } else if (winner.equals(m.teamB)) {
+        b.won++;
+        b.points += 2;
+        a.lost++;
       } else {
         a.won++;
         a.points += 2;

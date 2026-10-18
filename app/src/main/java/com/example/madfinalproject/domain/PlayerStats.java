@@ -78,12 +78,11 @@ public final class PlayerStats {
     Map<String, Player> players = new LinkedHashMap<>();
     for (Match match : matches) {
       if (match.innings.isEmpty()) continue;
-      int active = match.activeIndex();
+      int active = Math.min(1, match.activeIndex());
       for (int index = 0; index <= active && index < match.innings.size(); index++) {
         Innings innings = match.innings.get(index);
-        int target = index == 1 ? match.innings.get(0).state(match.rules).runs + 1 : innings.target;
-        State state = innings.state(match.rules, target);
-        List<Progress> progress = innings.progress(match.rules, target);
+        State state = match.stateAt(index);
+        List<Progress> progress = match.progressAt(index);
         Set<String> batters = new HashSet<>(), bowlers = new HashSet<>();
         for (Progress point : progress) {
           batters.add(point.strikerBefore);

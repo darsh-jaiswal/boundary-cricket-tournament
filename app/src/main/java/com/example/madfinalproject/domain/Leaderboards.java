@@ -26,11 +26,9 @@ public final class Leaderboards {
     for (Match match : matches) {
       if (!tournamentId.equals(match.tournament)) continue;
       for (int index = 0; index < match.innings.size(); index++) {
-        if (index > match.activeIndex()) break;
+        if (index > Math.min(1, match.activeIndex())) break;
         Innings innings = match.innings.get(index);
-        State state = index == 1
-            ? innings.state(match.rules, match.innings.get(0).state(match.rules).runs + 1)
-            : innings.state(match.rules);
+        State state = match.stateAt(index);
         for (Map.Entry<String, Batting> entry : state.batting.entrySet()) {
           if (entry.getKey().isEmpty()) continue;
           Batting b = entry.getValue();

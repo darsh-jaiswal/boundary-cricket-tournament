@@ -461,6 +461,10 @@ public class MainActivity extends AppCompatActivity {
     board.setOrientation(1);
     board.setPadding(dp(20), dp(20), dp(20), dp(20));
     board.setBackground(bg(0xff202525, 22));
+    if (match.activeIndex() >= 2)
+      board.addView(text("SUPER OVER " + (match.activeIndex() / 2)
+          + (match.activeIndex() % 2 == 0 ? " · FIRST INNINGS" : " · CHASE"),
+          12, LIME, true));
     board.addView(
         text(
             (s.closed ? "INNINGS COMPLETE" : "LIVE") + (s.freeHit ? " · FREE HIT" : ""),
@@ -489,9 +493,7 @@ public class MainActivity extends AppCompatActivity {
               true));
     body.addView(board);
     gap();
-    int initialTarget = match.activeIndex() == 1
-        ? match.innings.get(0).state(match.rules).runs + 1 : match.current().target;
-    List<Progress> deliveries = match.current().progress(match.rules, initialTarget);
+    List<Progress> deliveries = match.progressAt(match.activeIndex());
     if (!deliveries.isEmpty()) {
       int first = Math.max(0, deliveries.size() - 6);
       StringBuilder recentBalls = new StringBuilder();
@@ -529,7 +531,7 @@ public class MainActivity extends AppCompatActivity {
             : s.bowler + "   " + s.bowl(s.bowler).wickets + "/" + s.bowl(s.bowler).runs;
     card("At the crease", bat.toString().trim(), "Bowling: " + bowl);
     if (!s.closed && !role.equals("Spectator") && !role.equals("Player")) {
-      if (s.bowler.isEmpty()) action(body, "Choose bowler", this::bowler);
+      action(body, s.bowler.isEmpty() ? "Choose bowler" : "Change bowler", this::bowler);
       grid(
           new String[] {"0", "1", "2", "3", "4", "6"},
           v -> {
@@ -599,7 +601,11 @@ public class MainActivity extends AppCompatActivity {
       action(body, "Add scorer note", this::scorerNote);
       action(body, "End innings early", this::endInningsEarly);
     } else if (s.closed && match.innings.size() == 1) action(body, "Start the chase", this::chase);
-    if (match.innings.size() == 2 && s.closed) card("Final result", match.result(), story());
+    if (match.canStartSuperChase() && !role.equals("Spectator") && !role.equals("Player"))
+      action(body, "Start Super Over chase", () -> superOver(true));
+    else if (match.canStartSuperOver() && !role.equals("Spectator") && !role.equals("Player"))
+      action(body, "Start Super Over", () -> superOver(false));
+    if (!"Live".equals(match.result())) card("Match result", match.result(), story());
     gap();
     grid(
         new String[] {"Scorecard", "Share", "Rules", "History", "Match graphs", "Match awards", "Squad availability"},
@@ -828,11 +834,30 @@ public class MainActivity extends AppCompatActivity {
     CheckBox last = check(box, "Last batter may bat solo", r.lastMan),
         legal =
             check(box, "Final-over wides / no-balls count as deliveries", r.finalOverExtrasLegal);
+    action(box, "Choose match format preset", () -> new AlertDialog.Builder(this)
+        .setTitle("Match format")
+        .setItems(new String[] {"T20 · 20 six-ball overs", "T10 · 10 six-ball overs",
+            "Hundred-style · 20 five-ball overs", "Box cricket · 10 four-ball overs",
+            "Eight-ball classic · 10 overs"}, (d, choice) -> {
+          int[] balls = {6, 6, 5, 4, 8};
+          int[] counts = {20, 10, 20, 10, 10};
+          bpo.setText("" + balls[choice]);
+          overs.setText("" + counts[choice]);
+          limit.setText("" + Math.max(1, counts[choice] / 5));
+          pp.setText("" + Math.min(6, Math.max(1, counts[choice] / 5)));
+        }).show());
     dialog(
         "Gully-to-Pro rules",
         box,
         "Save rules",
         () -> {
+          if (match != null && r == match.rules) {
+            for (Innings in : match.innings)
+              for (Event event : in.events)
+                if (!event.reversed && event.kind == Kind.BALL)
+                  throw new IllegalArgumentException(
+                      "Match rules are locked after the first delivery. Correct deliveries in History, or create a new match for a different format.");
+          }
           Rules next = new Rules();
           next.ballsPerOver = num(bpo);
           next.overs = num(overs);
@@ -977,22 +1002,29 @@ public class MainActivity extends AppCompatActivity {
             new String[] {
               "Right-arm pace", "Left-arm pace", "Off spin", "Leg spin", "Left-arm orthodox"
             });
+    State before = match.state();
+    boolean midOver = before.legal % match.rules.ballsPerOver != 0 && !before.bowler.isEmpty();
+    CheckBox replacement = midOver
+        ? check(box, "Replace current bowler mid-over due to injury or absence", false) : null;
     dialog(
         "Select bowler",
         box,
-        "Begin over",
+        midOver ? "Change bowler" : "Begin over",
         () -> {
           String name = (String) p.getSelectedItem();
           State s = match.state();
-          if (s.legal % match.rules.ballsPerOver != 0 && !s.bowler.isEmpty())
+          if (s.legal % match.rules.ballsPerOver != 0 && !s.bowler.isEmpty()
+              && (replacement == null || !replacement.isChecked()))
             throw new IllegalArgumentException(
-                "Finish the current over before changing the bowler.");
+                "Confirm the mid-over replacement, or finish the current over.");
+          if (name.equals(s.bowler))
+            throw new IllegalArgumentException("Choose a different bowler.");
           if (s.bowl(name).balls >= match.rules.bowlerOvers * match.rules.ballsPerOver)
             throw new IllegalArgumentException("This bowler has reached the over limit.");
           Event e = new Event();
           e.kind = Kind.BOWLER;
           e.player = name;
-          e.note = (String) style.getSelectedItem();
+          e.note = (midOver ? "Mid-over replacement · " : "") + style.getSelectedItem();
           record(e);
         });
   }
@@ -1063,6 +1095,13 @@ public class MainActivity extends AppCompatActivity {
             e.bat = 0;
           }
           e.fielder = fielder.getSelectedItemPosition() == 0 ? "" : (String) fielder.getSelectedItem();
+          if ((e.dismissal == Dismissal.CAUGHT || e.dismissal == Dismissal.STUMPED)
+              && e.fielder.isEmpty())
+            throw new IllegalArgumentException("Select the fielder for a catch or stumping.");
+          if (e.dismissal == Dismissal.CAUGHT && (e.extra == Extra.WIDE || e.extra == Extra.NO_BALL))
+            throw new IllegalArgumentException("A caught dismissal is not valid from a wide or no-ball.");
+          if (e.dismissal == Dismissal.STUMPED && e.extra == Extra.NO_BALL)
+            throw new IllegalArgumentException("A batter cannot be stumped from a no-ball.");
           record(e);
         });
   }
@@ -1174,6 +1213,39 @@ public class MainActivity extends AppCompatActivity {
         });
   }
 
+  private void superOver(boolean chase) {
+    if (!writable()) return;
+    LinearLayout box = form();
+    Spinner first = chase ? null : spinner(box, "Batting first",
+        new String[] {match.teamA, match.teamB});
+    String batting = chase ? match.innings.get(match.innings.size() - 1).bowlingTeam
+        : match.teamA;
+    Spinner a = spinner(box, "Opening striker", squad(batting));
+    Spinner b = spinner(box, "Opening partner", squad(batting));
+    if (b.getCount() > 1) b.setSelection(1);
+    if (first != null) first.setOnItemSelectedListener(new android.widget.AdapterView.OnItemSelectedListener() {
+      @Override public void onItemSelected(android.widget.AdapterView<?> parent,
+          android.view.View view, int position, long id) {
+        String[] players = squad((String) first.getSelectedItem());
+        a.setAdapter(new android.widget.ArrayAdapter<>(MainActivity.this,
+            android.R.layout.simple_spinner_dropdown_item, players));
+        b.setAdapter(new android.widget.ArrayAdapter<>(MainActivity.this,
+            android.R.layout.simple_spinner_dropdown_item, players));
+        if (players.length > 1) b.setSelection(1);
+      }
+      @Override public void onNothingSelected(android.widget.AdapterView<?> parent) {}
+    });
+    box.addView(text("One over per team, two wickets maximum. Another Super Over can break a tie.",
+        12, MUTED, false));
+    dialog(chase ? "Super Over chase" : "Start Super Over", box, "Start innings", () -> {
+      if (chase) match.startSuperChase((String) a.getSelectedItem(), (String) b.getSelectedItem());
+      else match.startSuperOver((String) first.getSelectedItem(),
+          (String) a.getSelectedItem(), (String) b.getSelectedItem());
+      persist();
+      draw();
+    });
+  }
+
   private void confirmReversal(String title, Runnable r) {
     if (!writable()) return;
     if (pending != null) pending.dismiss();
@@ -1206,11 +1278,15 @@ public class MainActivity extends AppCompatActivity {
       historyInnings(0);
       return;
     }
+    String[] inningsLabels = new String[match.innings.size()];
+    for (int i = 0; i < inningsLabels.length; i++) {
+      Innings in = match.innings.get(i);
+      inningsLabels[i] = (i < 2 ? "MAIN MATCH | " : "SUPER OVER " + (i / 2) + " | ")
+          + in.battingTeam + (i % 2 == 1 ? " | chase" : " | first innings");
+    }
     new AlertDialog.Builder(this)
         .setTitle("Choose innings to review")
-        .setItems(
-            new String[] {match.teamA + " — first innings", match.teamB + " — chase"},
-            (d, index) -> historyInnings(index))
+        .setItems(inningsLabels, (d, index) -> historyInnings(index))
         .show();
   }
 
@@ -1254,7 +1330,15 @@ public class MainActivity extends AppCompatActivity {
             "Extra type",
             Arrays.stream(Extra.values()).map(Enum::name).toArray(String[]::new));
     ex.setSelection(e.extra.ordinal());
-    CheckBox out = check(box, "Wicket stands", e.dismissal != Dismissal.NONE),
+    Spinner dismissal = spinner(box, "Dismissal",
+        Arrays.stream(Dismissal.values()).map(v -> v.name().replace('_', ' ')).toArray(String[]::new));
+    dismissal.setSelection(e.dismissal.ordinal());
+    Spinner dismissedEnd = spinner(box, "Dismissed end", new String[] {"Striker", "Non-striker"});
+    dismissedEnd.setSelection(e.nonStrikerOut ? 1 : 0);
+    EditText incoming = field(box, "Incoming batter (blank if none)", e.incoming, false);
+    EditText fielder = field(box, "Fielder", e.fielder, false);
+    CheckBox crossed = check(box, "Crossed before the wicket", e.crossed),
+        boundary = check(box, "Boundary", e.boundary),
         reversed = check(box, "Decision reversed / remove entire event", e.reversed);
     dialog(
         "Correct event " + (index + 1),
@@ -1270,7 +1354,12 @@ public class MainActivity extends AppCompatActivity {
                 e.completed = phys;
                 e.overthrow = overRuns;
                 e.extra = Extra.values()[ex.getSelectedItemPosition()];
-                if (!out.isChecked()) e.dismissal = Dismissal.NONE;
+                e.dismissal = Dismissal.values()[dismissal.getSelectedItemPosition()];
+                e.nonStrikerOut = dismissedEnd.getSelectedItemPosition() == 1;
+                e.incoming = val(incoming);
+                e.fielder = val(fielder);
+                e.crossed = crossed.isChecked();
+                e.boundary = boundary.isChecked();
                 e.reversed = reversed.isChecked();
                 e.note = "Corrected event " + (index + 1);
                 match.revision++;
@@ -1318,8 +1407,10 @@ public class MainActivity extends AppCompatActivity {
   private void scorecard() {
     StringBuilder result = new StringBuilder();
     for (Innings in : match.innings) {
-      State s = in.state(match.rules);
+      int inningsIndex = match.innings.indexOf(in);
+      State s = match.stateAt(inningsIndex);
       result
+          .append(inningsIndex < 2 ? "MAIN MATCH | " : "SUPER OVER " + (inningsIndex / 2) + " | ")
           .append(in.battingTeam)
           .append("  ")
           .append(s.runs)
@@ -1377,7 +1468,7 @@ public class MainActivity extends AppCompatActivity {
     String top = "";
     int best = -1;
     for (Innings in : match.innings)
-      for (Map.Entry<String, Batting> b : in.state(match.rules).batting.entrySet())
+      for (Map.Entry<String, Batting> b : match.stateAt(match.innings.indexOf(in)).batting.entrySet())
         if (b.getValue().runs > best) {
           best = b.getValue().runs;
           top = b.getKey();

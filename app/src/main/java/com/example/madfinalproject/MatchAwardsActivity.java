@@ -37,7 +37,7 @@ public final class MatchAwardsActivity extends AppCompatActivity {
       if (match == null) { label("Match could not be found. Return and select a saved match.", 16, false); return; }
       label(match.name, 21, true); action("Refresh awards", this::load);
       List<PlayerStats.Player> players = PlayerStats.mvp(match);
-      boolean completed = match.innings.size() >= 2 && match.activeIndex() == 1 && match.state().closed;
+      boolean completed = match.mainCompleted() && !"Live".equals(match.result());
       String status = completed ? "Completed match · suggested awards" : "Live match · provisional suggestions";
       label(status, 16, true);
       String rules = "Boundary MVP points = batting runs + 20 per bowling wicket + 8 per credited catch, run-out involvement or stumping. Run-outs are not bowler wickets. Tied point totals share the position; alphabetical order only arranges tied players. This original formula is a suggestion, not an official tournament award.";

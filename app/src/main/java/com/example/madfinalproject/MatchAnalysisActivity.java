@@ -69,9 +69,8 @@ public final class MatchAnalysisActivity extends AppCompatActivity {
       int active = match.activeIndex();
       for (int index = 0; index <= active && index < match.innings.size(); index++) {
         Cricket.Innings innings = match.innings.get(index);
-        int initialTarget = index == 1 ? match.innings.get(0).state(match.rules).runs + 1 : innings.target;
-        Cricket.State state = innings.state(match.rules, initialTarget);
-        List<Cricket.Progress> points = innings.progress(match.rules, initialTarget);
+        Cricket.State state = match.stateAt(index);
+        List<Cricket.Progress> points = match.progressAt(index);
         String heading = "Innings " + (index + 1) + " · " + names.getOrDefault(innings.battingTeam, innings.battingTeam);
         label(heading, 21, true);
         String rate = state.legal == 0 ? "unavailable (no legal balls yet)"

@@ -34,6 +34,8 @@ public final class Publication extends JobService {
       o.put("target", s.target);
       o.put("venue", m.venue);
       o.put("result", m.result());
+      o.put("phase", m.activeIndex() < 2 ? "MAIN MATCH"
+          : "SUPER OVER " + (m.activeIndex() / 2));
       o.put("probability", Cricket.probability(s, m.rules));
       o.put("commentary", new JSONArray(s.commentary));
       o.put("revision", m.revision);
@@ -41,10 +43,13 @@ public final class Publication extends JobService {
       for (Cricket.Tournament t : db.tournaments())
         if (t.id.equals(m.tournament)) o.put("tournamentName", t.name);
       JSONArray cards = new JSONArray();
-      for (Cricket.Innings innings : m.innings) {
-        Cricket.State state = innings == m.current() ? m.state() : innings.state(m.rules);
+      for (int inningsIndex = 0; inningsIndex < m.innings.size(); inningsIndex++) {
+        Cricket.Innings innings = m.innings.get(inningsIndex);
+        Cricket.State state = m.stateAt(inningsIndex);
         JSONObject card = new JSONObject();
         card.put("team", innings.battingTeam);
+        card.put("phase", inningsIndex < 2 ? "MAIN MATCH"
+            : "SUPER OVER " + (inningsIndex / 2));
         card.put("runs", state.runs);
         card.put("wickets", state.wickets);
         card.put("overs", state.overs(m.rules));
