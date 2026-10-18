@@ -668,4 +668,22 @@ public final class Career {
     }
     return years;
   }
+
+  // ---------------------------------------------------------------- per match innings
+
+  /**
+   * This career limited to match innings 1 (batting or bowling first) or 2 (the chase); any other number
+   * returns this career. Partnerships and fielding counts are not tied to an innings here, so they are left out.
+   */
+  public Career inMatchInnings(int number) {
+    if (number != 1 && number != 2) return this;
+    int index = number - 1;
+    Career c = new Career(who);
+    c.matches.addAll(matches);
+    for (BatInnings b : batting) if (b.index == index) c.batting.add(b);
+    for (BowlInnings b : bowling) if (b.index == index) c.bowling.add(b);
+    for (Ball b : faced) if (b.index == index) c.faced.add(b);
+    for (Ball b : bowled) if (b.index == index) c.bowled.add(b);
+    return c;
+  }
 }
