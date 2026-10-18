@@ -9,4 +9,15 @@
         <item name="android:navigationBarColor">#F3F6EF</item>
         <item name="android:windowBackground">#F3F6EF</item>
     </style>
+    <style name="Theme.Boundary.Main" parent="Theme.Material3.Dark.NoActionBar">
+        <item name="colorPrimary">#35B07F</item>
+        <item name="colorOnPrimary">#03140B</item>
+        <item name="colorSecondary">#35B07F</item>
+        <item name="android:fontFamily">sans</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowLightNavigationBar">false</item>
+        <item name="android:statusBarColor">#0E1411</item>
+        <item name="android:navigationBarColor">#18211C</item>
+        <item name="android:windowBackground">#0E1411</item>
+    </style>
 </resources>

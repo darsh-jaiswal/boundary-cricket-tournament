@@ -18,17 +18,24 @@ import androidx.core.view.WindowInsetsCompat;
 import com.example.madfinalproject.data.Repository;
 import com.example.madfinalproject.domain.Cricket;
 import com.example.madfinalproject.domain.Leaderboards;
+import com.example.madfinalproject.domain.PlayerProfile;
 import com.example.madfinalproject.domain.RegisteredPlayer;
 import com.example.madfinalproject.domain.Cricket.*;
 import java.util.*;
 import java.util.function.Consumer;
 
 public class MainActivity extends AppCompatActivity {
-  private static final int INK = 0xff17251d,
+  // Resolved from Ui.palette in onCreate, so the whole workspace follows Appearance (light, dark, device).
+  private int INK = 0xff17251d,
       GREEN = 0xff147653,
       PAPER = 0xfff3f6ef,
       MUTED = 0xff66756b,
-      LIME = 0xffd0ed8c;
+      LIME = 0xffd0ed8c,
+      SURFACE = Color.WHITE,
+      SURFACE2 = 0xffe9efe6,
+      ON_ACCENT = Color.WHITE;
+  private Ui.Palette pal;
+  private ProfileStore profile;
   private Repository repo;
   private Match match;
   private String page = "Home", role = "Organizer";
@@ -42,7 +49,12 @@ public class MainActivity extends AppCompatActivity {
 
   @Override
   public void onCreate(Bundle state) {
+    Ui.applyAppearance(this);
     super.onCreate(state);
+    pal = Ui.palette(this);
+    INK = pal.ink; GREEN = pal.accent; PAPER = pal.bg; MUTED = pal.muted;
+    SURFACE = pal.surface; SURFACE2 = pal.surface2; ON_ACCENT = pal.onAccent;
+    profile = new ProfileStore(this);
     androidx.core.view.WindowCompat.setDecorFitsSystemWindows(getWindow(), true);
     repo = new Repository(this);
     String id = getPreferences(0).getString("active", "");
@@ -89,9 +101,9 @@ public class MainActivity extends AppCompatActivity {
     b.setText(s);
     b.setAllCaps(false);
     b.setTextSize(12);
-    b.setTextColor(primary ? 0xff031b1b : INK);
+    b.setTextColor(primary ? ON_ACCENT : INK);
     b.setBackgroundTintList(
-        android.content.res.ColorStateList.valueOf(primary ? GREEN : 0xff272727));
+        android.content.res.ColorStateList.valueOf(primary ? GREEN : SURFACE2));
     b.setMinHeight(dp(48));
     b.setOnClickListener(v -> guard(action));
     return b;
@@ -135,7 +147,7 @@ public class MainActivity extends AppCompatActivity {
     LinearLayout c = new LinearLayout(this);
     c.setOrientation(1);
     c.setPadding(dp(17), dp(16), dp(17), dp(16));
-    c.setBackground(bg(Color.WHITE, 18));
+    c.setBackground(bg(SURFACE, 18));
     LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(-1, -2);
     p.bottomMargin = dp(12);
     body.addView(c, p);
@@ -191,19 +203,7 @@ public class MainActivity extends AppCompatActivity {
           v.setPadding(b.left, b.top, b.right, b.bottom);
           return insets;
         });
-    LinearLayout head = new LinearLayout(this);
-    head.setPadding(dp(18), dp(8), dp(18), dp(8));
-    head.setGravity(Gravity.CENTER_VERTICAL);
-    head.setBackgroundColor(Color.WHITE);
-    head.addView(text("Boundary", 22, GREEN, true), new LinearLayout.LayoutParams(0, dp(42), 1));
-    Button roleButton = button(role + " ▾", false, this::roles);
-    roleButton.setMinWidth(0);
-    roleButton.setPadding(dp(8), 0, dp(8), 0);
-    head.addView(roleButton);
-    Button create = button("+", true, this::quickCreate);
-    create.setContentDescription("Create match, tournament, team or broadcast");
-    head.addView(create, new LinearLayout.LayoutParams(dp(52), dp(48)));
-    root.addView(head);
+    root.addView(topBar());
     if (isMyCricket()) {
       TextView section = text("Your Cricket", 27, GREEN, false);
       section.setPadding(dp(18), dp(12), dp(18), dp(10));
@@ -213,11 +213,13 @@ public class MainActivity extends AppCompatActivity {
       LinearLayout tabs = new LinearLayout(this);
       String[] keys = {"Matches", "Cups", "Teams", "Stats", "Score"};
       String[] names = {"Matches", "Tournaments", "Teams", "Stats", "Scoring"};
+      tabs.setPadding(dp(14), 0, dp(14), dp(6));
       for (int index = 0; index < keys.length; index++) {
         final String key = keys[index];
-        Button tab = button(names[index], false, () -> { page = key; draw(); });
-        tab.setTextColor(key.equals(page) ? GREEN : MUTED);
-        tabs.addView(tab);
+        TextView tab = Ui.chip(this, pal, names[index], key.equals(page), () -> { page = key; draw(); });
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-2, -2);
+        lp.setMargins(dp(4), 0, dp(4), 0);
+        tabs.addView(tab, lp);
       }
       strip.addView(tabs);
       root.addView(strip);
@@ -232,24 +234,7 @@ public class MainActivity extends AppCompatActivity {
     body.setPadding(dp(18), dp(10), dp(18), dp(24));
     scroll.addView(body);
     root.addView(scroll, new LinearLayout.LayoutParams(-1, 0, 1));
-    LinearLayout nav = new LinearLayout(this);
-    nav.setBackgroundColor(Color.WHITE);
-    for (String tab : new String[] {"Home", "Looking", "Matches", "Community", "Store"}) {
-      Button b =
-          button(
-              tab.equals("Matches") ? "My Cricket" : tab,
-              tab.equals(page) || tab.equals("Matches") && isMyCricket(),
-              () -> {
-                page = tab;
-                draw();
-              });
-      b.setTextSize(10);
-      b.setBackgroundTintList(android.content.res.ColorStateList.valueOf(Color.WHITE));
-      b.setTextColor(tab.equals(page) || tab.equals("Matches") && isMyCricket() ? GREEN : MUTED);
-      b.setPadding(0, 0, 0, 0);
-      nav.addView(b, new LinearLayout.LayoutParams(0, dp(48), 1));
-    }
-    root.addView(nav);
+    root.addView(bottomNav());
     switch (page) {
       case "Matches":
         matchDirectory();
@@ -257,10 +242,6 @@ public class MainActivity extends AppCompatActivity {
       case "Stats":
         heading("Player performances", "Stats & rankings", "Career figures from matches saved on this device.");
         action(body, "Open player statistics", () -> startActivity(new Intent(this, PlayerDirectoryActivity.class)));
-        break;
-      case "Looking":
-      case "Community":
-        community();
         break;
       case "Score":
         score();
@@ -277,6 +258,9 @@ public class MainActivity extends AppCompatActivity {
       case "Tools":
         tools();
         break;
+      case "Search":
+        searchPage();
+        break;
       default:
         home();
     }
@@ -292,73 +276,433 @@ public class MainActivity extends AppCompatActivity {
     return Arrays.asList("Matches", "Cups", "Teams", "Stats", "Score").contains(page);
   }
 
-  private void quickCreate() {
-    String[] choices = {"Start a match", "Go live", "Add a tournament / series", "Add team", "Looking for", "Ground tools"};
-    new AlertDialog.Builder(this).setTitle("Create").setItems(choices, (dialog, index) -> guard(() -> {
-      switch (index) {
-        case 0: if (writable()) matchSetup(null, null); break;
-        case 1: startActivity(new Intent(this, LiveStreamActivity.class)); break;
-        case 2: newCup(); break;
-        case 3: page = "Teams"; draw(); break;
-        case 4: page = "Looking"; draw(); break;
-        default: page = "Tools"; draw();
-      }
-    })).show();
+  private View plusButton;
+
+  /** Avatar on the left opens the profile panel; the + on the right opens the create menu. */
+  private View topBar() {
+    LinearLayout head = Ui.row(this);
+    head.setPadding(dp(16), dp(10), dp(16), dp(10));
+    head.setBackgroundColor(PAPER);
+    View avatar = Ui.avatar(this, pal, profile.photo(), profile.name(), 44);
+    avatar.setContentDescription("Open profile panel");
+    avatar.setOnClickListener(v -> guard(this::drawer));
+    head.addView(avatar);
+    String title = page.equals("Home") ? "" : isMyCricket() ? "My Cricket"
+        : page.equals("Tools") ? "Umpire tools" : page;
+    TextView t = Ui.text(this, title, 20, INK, true);
+    t.setPadding(dp(14), 0, 0, 0);
+    head.addView(t, Ui.weight(1));
+    View plus = Ui.iconButton(this, pal, "plus", 48, GREEN, ON_ACCENT, () -> guard(this::quickCreate));
+    plus.setContentDescription("Create match, tournament, team or broadcast");
+    plusButton = plus;
+    head.addView(plus);
+    return head;
   }
 
-  private void community() {
-    heading("Find your cricket circle", page.equals("Looking") ? "Looking for" : "Community",
-        "Players, opponents, officials and places to play.");
-    String[] labels = {"Players", "Opponents", "Scorers", "Umpires", "Grounds", "Coaches", "Cricket updates"};
-    String[] categories = {"players", "opponents", "scorers", "umpires", "grounds", "coaches", "updates"};
-    for (int index = 0; index < labels.length; index++) {
-      final String category = categories[index];
-      action(body, labels[index], () -> startActivity(new Intent(Intent.ACTION_VIEW,
-          Uri.parse("https://boundary-cricket-tournament.vercel.app/community.html?category=" + category))));
+  private View bottomNav() {
+    LinearLayout nav = Ui.row(this);
+    nav.setBackgroundColor(SURFACE);
+    nav.setPadding(dp(6), dp(6), dp(6), dp(6));
+    String[][] tabs = {{"Home", "Home", "home"}, {"Matches", "My Cricket", "bat"}, {"Store", "Store", "store"}};
+    for (String[] tab : tabs) {
+      boolean on = tab[0].equals(page) || tab[0].equals("Matches") && isMyCricket();
+      LinearLayout item = Ui.column(this);
+      item.setGravity(Gravity.CENTER);
+      item.setPadding(0, dp(4), 0, dp(2));
+      android.widget.FrameLayout iconWrap = new android.widget.FrameLayout(this);
+      if (on) iconWrap.setBackground(Ui.round(pal.accentSoft, dp(16)));
+      iconWrap.addView(new IconView(this, tab[2], on ? GREEN : MUTED),
+          new android.widget.FrameLayout.LayoutParams(dp(24), dp(24), Gravity.CENTER));
+      item.addView(iconWrap, new LinearLayout.LayoutParams(dp(60), dp(32)));
+      TextView label = Ui.text(this, tab[1], 11, on ? GREEN : MUTED, on);
+      label.setPadding(0, dp(4), 0, 0);
+      label.setGravity(Gravity.CENTER);
+      item.addView(label, new LinearLayout.LayoutParams(-2, -2));
+      item.setContentDescription(tab[1]);
+      item.setOnClickListener(v -> { page = tab[0]; draw(); });
+      nav.addView(item, new LinearLayout.LayoutParams(0, -2, 1));
+    }
+    return nav;
+  }
+
+  /** The + menu, anchored under the button like a dropdown. */
+  private void quickCreate() {
+    LinearLayout menu = Ui.column(this);
+    menu.setBackground(Ui.round(SURFACE, dp(18)));
+    menu.setElevation(dp(10));
+    menu.setPadding(0, dp(8), 0, dp(8));
+    android.widget.PopupWindow popup = new android.widget.PopupWindow(menu, dp(270), -2, true);
+    popup.setElevation(dp(10));
+    Object[][] groups = {
+        {new String[] {"Start a match", "Go live"}},
+        {new String[] {"Add a tournament / series", "Add team"}},
+        {new String[] {"Get help"}}};
+    for (int g = 0; g < groups.length; g++) {
+      if (g > 0) {
+        View line = Ui.divider(this, pal);
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-1, Math.max(1, dp(0.7f)));
+        lp.setMargins(dp(18), dp(6), dp(18), dp(6));
+        menu.addView(line, lp);
+      }
+      for (String label : (String[]) groups[g][0]) {
+        TextView item = Ui.text(this, label, 16, INK, false);
+        item.setPadding(dp(22), dp(14), dp(22), dp(14));
+        item.setOnClickListener(v -> { popup.dismiss(); guard(() -> create(label)); });
+        menu.addView(item);
+      }
+    }
+    if (plusButton != null) popup.showAsDropDown(plusButton, -dp(270) + plusButton.getWidth(), dp(6));
+    else popup.showAtLocation(root, Gravity.TOP | Gravity.END, dp(16), dp(80));
+  }
+
+  /** Profile panel sliding in from the left, as in the reference design minus the excluded entries. */
+  private void drawer() {
+    com.google.android.material.sidesheet.SideSheetDialog sheet = new com.google.android.material.sidesheet.SideSheetDialog(this);
+    ScrollView scroll = new ScrollView(this);
+    scroll.setBackgroundColor(SURFACE);
+    LinearLayout panel = Ui.column(this);
+    panel.setPadding(dp(16), dp(16), dp(16), dp(24));
+    scroll.addView(panel);
+
+    LinearLayout header = Ui.column(this);
+    header.setBackground(Ui.round(SURFACE2, dp(20)));
+    header.setPadding(dp(16), dp(16), dp(16), dp(16));
+    LinearLayout who = Ui.row(this);
+    who.setGravity(Gravity.TOP);
+    View avatar = Ui.avatar(this, pal, profile.photo(), profile.name(), 64);
+    avatar.setOnClickListener(v -> { sheet.dismiss(); startActivity(new Intent(this, ProfilePhotoActivity.class)); });
+    who.addView(avatar);
+    LinearLayout details = Ui.column(this);
+    details.setPadding(dp(14), 0, dp(8), 0);
+    String name = profile.name().isEmpty() ? "Add your name" : profile.name();
+    details.addView(Ui.text(this, name, 18, INK, true));
+    for (String line : new String[] {profile.phone(), profile.email()}) {
+      if (line.isEmpty()) continue;
+      TextView t = Ui.text(this, line, 13, MUTED, false);
+      t.setPadding(0, dp(4), 0, 0);
+      details.addView(t);
+    }
+    if (!PlayerAccount.linked(this)) {
+      TextView link = Ui.text(this, "Link your phone account", 13, GREEN, true);
+      link.setPadding(0, dp(6), 0, 0);
+      link.setOnClickListener(v -> { sheet.dismiss(); startActivity(new Intent(this, PlayerAccountActivity.class)); });
+      details.addView(link);
+    }
+    LinearLayout social = Ui.row(this);
+    social.setPadding(0, dp(10), 0, 0);
+    social.addView(Ui.chip(this, pal, "Connections", false, () -> { sheet.dismiss();
+      startActivity(new Intent(this, ProfileActivity.class).putExtra(ProfileActivity.EXTRA_TAB, "Connections")); }));
+    social.addView(Ui.space(this, 8, 1));
+    social.addView(Ui.iconButton(this, pal, "qr", 34, SURFACE, INK, () -> { sheet.dismiss();
+      startActivity(new Intent(this, ProfileActivity.class).putExtra(ProfileActivity.EXTRA_SHEET, "qr")); }));
+    details.addView(social);
+    who.addView(details, Ui.weight(1));
+    who.addView(Ui.iconButton(this, pal, "edit", 36, SURFACE, INK, () -> { sheet.dismiss(); editProfile(); }));
+    header.addView(who);
+    TextView workspace = Ui.text(this, "Workspace · " + role + "  ▾", 14, ON_ACCENT, true);
+    workspace.setBackground(Ui.round(GREEN, dp(14)));
+    workspace.setPadding(dp(14), dp(10), dp(14), dp(10));
+    LinearLayout.LayoutParams wl = new LinearLayout.LayoutParams(-2, -2);
+    wl.topMargin = dp(14);
+    workspace.setOnClickListener(v -> { sheet.dismiss(); roles(); });
+    header.addView(workspace, wl);
+    panel.addView(header);
+
+    LinearLayout items = Ui.column(this);
+    items.setPadding(0, dp(10), 0, 0);
+    panel.addView(items);
+    drawerItem(items, "bat", "Your Cricket Profile", () -> { sheet.dismiss(); startActivity(new Intent(this, ProfileActivity.class)); });
+    drawerItem(items, "performance", "My Performance", () -> { sheet.dismiss(); startActivity(new Intent(this, PerformanceActivity.class)); });
+    drawerItem(items, "store", "Boundary Store", () -> { sheet.dismiss(); page = "Store"; draw(); });
+    if (role.equals("Umpire"))
+      drawerItem(items, "settings", "Umpire tools", () -> { sheet.dismiss(); page = "Tools"; draw(); });
+    items.addView(drawerRule());
+    drawerItem(items, "appearance", "Appearance", () -> { sheet.dismiss(); appearance(); });
+    items.addView(drawerRule());
+    drawerGroup(items, "support", "Support", new String[][] {
+        {"help", "Get help"}, {"support", "Contact support"}, {"info", "Report a problem"}}, label -> {
+      sheet.dismiss();
+      if (label.equals("Get help")) help();
+      else if (label.equals("Contact support")) contactSupport("Boundary support request", "");
+      else contactSupport("Boundary problem report", "What happened, and what did you expect?\n");
+    });
+    items.addView(drawerRule());
+    drawerGroup(items, "others", "Others", new String[][] {
+        {"star", "Rate us"}, {"info", "About us"}, {"shield", "Privacy Policy"},
+        {"doc", "Terms of Service"}, {"return", "Return & Exchange Policy"}}, label -> {
+      sheet.dismiss();
+      switch (label) {
+        case "Rate us": rateUs(); break;
+        case "About us": message("About Boundary", "Boundary is an offline-first cricket scoring and tournament app for local, college, turf and club cricket.\n\nVersion " + appVersion()); break;
+        case "Privacy Policy": openPolicy("/privacy.html"); break;
+        case "Terms of Service": openPolicy("/terms.html"); break;
+        default: openPolicy("/returns.html");
+      }
+    });
+    items.addView(drawerRule());
+    drawerGroup(items, "settings", "Account Settings", new String[][] {
+        {"bell", "Notification Preference"}, {"language", "Change Language"}, {"receipt", "Purchase History"},
+        {"trash", "Delete account"}, {"clear", "Clear data"}, {"logout", "Logout"}}, label -> {
+      sheet.dismiss();
+      switch (label) {
+        case "Notification Preference":
+          startActivity(new Intent(android.provider.Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+              .putExtra(android.provider.Settings.EXTRA_APP_PACKAGE, getPackageName()));
+          break;
+        case "Change Language":
+          if (Build.VERSION.SDK_INT >= 33) {
+            try {
+              startActivity(new Intent(android.provider.Settings.ACTION_APP_LOCALE_SETTINGS, Uri.parse("package:" + getPackageName())));
+              break;
+            } catch (ActivityNotFoundException ignored) { }
+          }
+          message("Change Language", "Boundary is available in English. More languages will appear here as they are added.");
+          break;
+        case "Purchase History": startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(PlayerAccount.ORIGIN + "/shop.html#orders"))); break;
+        case "Delete account": deleteAccount(); break;
+        case "Clear data": clearData(); break;
+        default: logout();
+      }
+    });
+
+    LinearLayout foot = Ui.column(this);
+    foot.setGravity(Gravity.CENTER);
+    foot.setPadding(0, dp(28), 0, 0);
+    foot.addView(Ui.text(this, "Boundary", 22, MUTED, true));
+    TextView version = Ui.text(this, "Version " + appVersion(), 12, MUTED, false);
+    version.setPadding(0, dp(4), 0, 0);
+    foot.addView(version);
+    panel.addView(foot);
+
+    int width = Math.min(dp(420), Math.round(getResources().getDisplayMetrics().widthPixels * 0.86f));
+    sheet.setContentView(scroll, new ViewGroup.LayoutParams(width, ViewGroup.LayoutParams.MATCH_PARENT));
+    // The Material side sheet container is fixed at 256dp by default; widen it to fit the panel.
+    View container = sheet.findViewById(com.google.android.material.R.id.m3_side_sheet);
+    if (container != null) {
+      ViewGroup.LayoutParams lp = container.getLayoutParams();
+      lp.width = width;
+      container.setLayoutParams(lp);
+    }
+    sheet.setSheetEdge(Gravity.START); // needs the sheet view, so only after setContentView
+    sheet.show();
+  }
+
+  private View drawerRule() {
+    View v = Ui.divider(this, pal);
+    LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-1, Math.max(1, dp(0.7f)));
+    lp.setMargins(dp(8), dp(4), dp(8), dp(4));
+    v.setLayoutParams(lp);
+    return v;
+  }
+
+  private LinearLayout drawerItem(LinearLayout parent, String icon, String label, Runnable action) {
+    LinearLayout r = Ui.row(this);
+    r.setPadding(dp(8), dp(14), dp(8), dp(14));
+    r.addView(new IconView(this, icon, INK), new LinearLayout.LayoutParams(dp(24), dp(24)));
+    TextView t = Ui.text(this, label, 16, INK, false);
+    t.setPadding(dp(18), 0, 0, 0);
+    r.addView(t, Ui.weight(1));
+    if (action != null) r.setOnClickListener(v -> guard(action));
+    parent.addView(r);
+    return r;
+  }
+
+  private void drawerGroup(LinearLayout parent, String icon, String label, String[][] children, Consumer<String> onPick) {
+    LinearLayout head = drawerItem(parent, icon, label, null);
+    IconView arrow = new IconView(this, "chevron-down", INK);
+    head.addView(arrow, new LinearLayout.LayoutParams(dp(22), dp(22)));
+    LinearLayout box = Ui.column(this);
+    box.setVisibility(View.GONE);
+    box.setPadding(dp(22), 0, 0, 0);
+    for (String[] child : children) drawerItem(box, child[0], child[1], () -> onPick.accept(child[1]));
+    parent.addView(box);
+    head.setOnClickListener(v -> {
+      boolean open = box.getVisibility() != View.VISIBLE;
+      box.setVisibility(open ? View.VISIBLE : View.GONE);
+      arrow.setRotation(open ? 180 : 0);
+    });
+  }
+
+  /** Light, Dark or Use device theme, saved and applied straight away. */
+  private void appearance() {
+    com.google.android.material.bottomsheet.BottomSheetDialog sheet = new com.google.android.material.bottomsheet.BottomSheetDialog(this);
+    LinearLayout box = Ui.column(this);
+    box.setBackgroundColor(SURFACE);
+    box.setPadding(dp(20), dp(20), dp(20), dp(24));
+    box.addView(Ui.text(this, "Appearance", 24, INK, true));
+    String[][] options = {{"light", "Light"}, {"dark", "Dark"}, {"system", "Use device theme"}};
+    final String[] chosen = {Ui.appearance(this)};
+    List<LinearLayout> rows = new ArrayList<>();
+    LinearLayout list = Ui.column(this);
+    list.setPadding(0, dp(18), 0, dp(18));
+    for (String[] option : options) {
+      LinearLayout r = Ui.row(this);
+      r.setPadding(dp(16), dp(16), dp(16), dp(16));
+      TextView dot = new TextView(this);
+      r.addView(dot, new LinearLayout.LayoutParams(dp(22), dp(22)));
+      TextView t = Ui.text(this, option[1], 16, INK, false);
+      t.setPadding(dp(16), 0, 0, 0);
+      r.addView(t);
+      r.setTag(option[0]);
+      LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-1, -2);
+      lp.bottomMargin = dp(10);
+      list.addView(r, lp);
+      rows.add(r);
+    }
+    Runnable paint = () -> {
+      for (LinearLayout r : rows) {
+        boolean on = r.getTag().equals(chosen[0]);
+        r.setBackground(on ? Ui.outline(pal.accentSoft, GREEN, dp(1), dp(18)) : Ui.round(SURFACE2, dp(18)));
+        r.getChildAt(0).setBackground(on ? Ui.outline(GREEN, GREEN, dp(5), dp(11)) : Ui.outline(0, MUTED, dp(2), dp(11)));
+      }
+    };
+    for (LinearLayout r : rows) r.setOnClickListener(v -> { chosen[0] = (String) r.getTag(); paint.run(); });
+    paint.run();
+    box.addView(list);
+    TextView save = Ui.pill(this, pal, "Save preference", true, () -> {
+      getSharedPreferences(Ui.PREFS, 0).edit().putString(Ui.APPEARANCE, chosen[0]).apply();
+      sheet.dismiss();
+      Ui.applyAppearance(this);
+      recreate();
+    });
+    box.addView(save, new LinearLayout.LayoutParams(-1, -2));
+    sheet.setContentView(box);
+    sheet.show();
+  }
+
+  private void editProfile() {
+    LinearLayout box = form();
+    EditText name = field(box, "Display name", profile.name(), false),
+        phone = field(box, "Phone (shown on your panel only)", profile.phone(), false),
+        email = field(box, "Email (shown on your panel only)", profile.email(), false);
+    PlayerProfile p = profile.attributes();
+    EditText city = field(box, "City", p.city, false);
+    String[] orders = new String[PlayerProfile.BATTING_ORDERS.length + 1];
+    orders[0] = "Batting order not recorded";
+    System.arraycopy(PlayerProfile.BATTING_ORDERS, 0, orders, 1, PlayerProfile.BATTING_ORDERS.length);
+    Spinner order = spinner(box, "Batting order", orders);
+    order.setSelection(Math.max(0, Arrays.asList(orders).indexOf(p.battingOrder)));
+    Spinner hand = spinner(box, "Batting hand", new String[] {"Not recorded", "RHB", "LHB"});
+    hand.setSelection(p.battingHand.equals("RHB") ? 1 : p.battingHand.equals("LHB") ? 2 : 0);
+    String[] styles = new String[PlayerProfile.BOWLING_STYLES.length + 1];
+    styles[0] = "Does not bowl / not recorded";
+    System.arraycopy(PlayerProfile.BOWLING_STYLES, 0, styles, 1, PlayerProfile.BOWLING_STYLES.length);
+    Spinner style = spinner(box, "Bowling style", styles);
+    style.setSelection(Math.max(0, Arrays.asList(styles).indexOf(p.bowlingStyle)));
+    box.addView(text("Your stats come from squad places that are you: phone-registered places for your linked account, plus any you mark with “This is me” in Teams.", 12, MUTED, false));
+    dialog("Edit profile", box, "Save profile", () -> {
+      profile.saveDetails(val(name), val(phone), val(email));
+      p.city = val(city);
+      p.battingOrder = order.getSelectedItemPosition() == 0 ? "" : orders[order.getSelectedItemPosition()];
+      p.battingHand = hand.getSelectedItemPosition() == 0 ? "" : (String) hand.getSelectedItem();
+      p.bowlingStyle = style.getSelectedItemPosition() == 0 ? "" : styles[style.getSelectedItemPosition()];
+      profile.saveAttributes(p);
+      draw();
+    });
+  }
+
+  private void rateUs() {
+    LinearLayout box = form();
+    box.addView(text("How is Boundary working for your matches?", 15, INK, true));
+    RatingBar stars = new RatingBar(this);
+    stars.setNumStars(5);
+    stars.setStepSize(1);
+    box.addView(stars, new LinearLayout.LayoutParams(-2, -2));
+    EditText note = field(box, "Anything we should improve? (optional)", "", false);
+    dialog("Rate us", box, "Send rating", () -> contactSupport("Boundary rating: " + (int) stars.getRating() + "/5", val(note)));
+  }
+
+  private void logout() {
+    new AlertDialog.Builder(this).setTitle("Log out of your phone account?")
+        .setMessage("This device stops acting for your player account. Saved matches, teams and recovery codes stay on this phone.")
+        .setNegativeButton("Cancel", null)
+        .setPositiveButton("Log out", (d, w) -> new Thread(() -> {
+          try { PlayerAccount.request(this, new org.json.JSONObject().put("action", "revoke")); } catch (Exception ignored) { }
+          getSharedPreferences("boundary-account", 0).edit().clear().apply();
+          runOnUiThread(() -> { Toast.makeText(this, "Logged out", Toast.LENGTH_SHORT).show(); draw(); });
+        }, "Boundary-logout").start()).show();
+  }
+
+  private void deleteAccount() {
+    new AlertDialog.Builder(this).setTitle("Delete your account?")
+        .setMessage("This logs this device out, removes your profile details and photo from this phone, and asks Boundary support to delete your registered player record. Match scorecards that others saved are not affected.")
+        .setNegativeButton("Cancel", null)
+        .setPositiveButton("Delete account", (d, w) -> {
+          String id = profile.accountId();
+          getSharedPreferences("boundary-profile", 0).edit().clear().apply();
+          if (profile.photo().exists() && !profile.photo().delete()) Toast.makeText(this, "Could not remove the photo file", Toast.LENGTH_SHORT).show();
+          new Thread(() -> {
+            try { PlayerAccount.request(this, new org.json.JSONObject().put("action", "revoke")); } catch (Exception ignored) { }
+            getSharedPreferences("boundary-account", 0).edit().clear().apply();
+            runOnUiThread(() -> { contactSupport("Delete my Boundary account", "Please delete my registered player account" + (id.isEmpty() ? "." : " (" + id + ").")); draw(); });
+          }, "Boundary-delete").start();
+        }).show();
+  }
+
+  private void clearData() {
+    new AlertDialog.Builder(this).setTitle("Clear all data on this phone?")
+        .setMessage("Every saved match, team, tournament, recovery code and unpublished score on this phone will be erased. Export or note your private match recovery codes first. This cannot be undone.")
+        .setNegativeButton("Keep my data", null)
+        .setPositiveButton("Erase everything", (d, w) -> {
+          android.app.ActivityManager am = (android.app.ActivityManager) getSystemService(ACTIVITY_SERVICE);
+          if (am != null) am.clearApplicationUserData();
+        }).show();
+  }
+
+  private void create(String choice) {
+    switch (choice) {
+      case "Start a match": if (writable()) matchSetup(null, null); break;
+      case "Go live": startActivity(new Intent(this, LiveStreamActivity.class)); break;
+      case "Add a tournament / series": newCup(); break;
+      case "Add team": page = "Teams"; draw(); break;
+      default: help();
     }
   }
 
+  private void help() {
+    String[] items = {"How do I score my first match?", "Who can edit a match?", "How do I add players?",
+        "Where are voice commands and the stump cam?", "Contact support"};
+    String[] answers = {
+        "Add two teams in My Cricket → Teams, add players by their registered phone numbers, then tap + → Start a match. Hold a run button to record zones and overthrows.",
+        "The device workspace decides it. Organizer, Manager, Scorer and Umpire can change a match; Player and Spectator are read-only. Switch it from the profile panel.",
+        "Each player registers once with their phone number on the Boundary website. In Teams, choose Add player by phone and enter their number.",
+        "Switch the workspace to Umpire from the profile panel. Umpire tools then appears in the panel with voice commands and the stump cam."};
+    new AlertDialog.Builder(this).setTitle("Get help").setItems(items, (d, w) -> {
+      if (w < answers.length) message(items[w], answers[w]);
+      else contactSupport("Boundary support request", "");
+    }).show();
+  }
+
+  private void contactSupport(String subject, String body) {
+    Intent mail = new Intent(Intent.ACTION_SENDTO, Uri.parse("mailto:"))
+        .putExtra(Intent.EXTRA_SUBJECT, subject)
+        .putExtra(Intent.EXTRA_TEXT, body + "\n\nApp version " + appVersion() + " · Android " + Build.VERSION.RELEASE);
+    try { startActivity(mail); }
+    catch (ActivityNotFoundException none) { openPolicy("/terms.html#contact"); }
+  }
+
+  private String appVersion() {
+    try { return getPackageManager().getPackageInfo(getPackageName(), 0).versionName; }
+    catch (Exception e) { return ""; }
+  }
+
+  /** My Cricket → Matches: the ten most recent matches as cards; each opens the match detail. */
   private void matchDirectory() {
-    EditText search = new EditText(this);
-    search.setHint("Quick search matches, teams or ground");
-    search.setSingleLine();
-    body.addView(search, new LinearLayout.LayoutParams(-1, dp(52)));
-    Spinner filter = new Spinner(this);
-    filter.setAdapter(new ArrayAdapter<>(this, android.R.layout.simple_spinner_dropdown_item,
-        new String[] {"All matches", "Live", "Completed"}));
-    body.addView(filter);
-    action(body, "Start your match", () -> { if (writable()) matchSetup(null, null); });
-    LinearLayout results = new LinearLayout(this);
-    results.setOrientation(1);
-    body.addView(results);
-    final List<Match> saved = repo.matches();
-    Runnable render = () -> {
-      results.removeAllViews();
-      String query = search.getText().toString().trim().toLowerCase(Locale.ROOT);
-      int count = 0;
-      for (Match item : saved) {
-        boolean live = item.result().equals("Live");
-        if (filter.getSelectedItemPosition() == 1 && !live || filter.getSelectedItemPosition() == 2 && live) continue;
-        if (!(item.name + " " + item.venue + " " + item.teamA + " " + item.teamB).toLowerCase(Locale.ROOT).contains(query)) continue;
-        State score = item.state();
-        Button row = button(item.name + "\n" + score.runs + "/" + score.wickets + " (" + score.overs(item.rules) + ") · "
-            + item.result(), false, () -> open(item));
-        row.setMinHeight(dp(88));
-        results.addView(row, new LinearLayout.LayoutParams(-1, -2));
-        count++;
-      }
-      if (count == 0) results.addView(text(saved.isEmpty() ? "No matches yet. Start your first match above." : "No matching scorecards.", 16, MUTED, false));
-    };
-    search.addTextChangedListener(new android.text.TextWatcher() {
-      public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
-      public void onTextChanged(CharSequence s, int start, int before, int count) { render.run(); }
-      public void afterTextChanged(android.text.Editable value) {}
-    });
-    filter.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
-      public void onItemSelected(AdapterView<?> parent, View view, int position, long id) { render.run(); }
-      public void onNothingSelected(AdapterView<?> parent) {}
-    });
-    render.run();
+    body.addView(Ui.pill(this, pal, "Start a match", true, () -> guard(() -> { if (writable()) matchSetup(null, null); })),
+        new LinearLayout.LayoutParams(-1, -2));
+    List<Match> recent = new ArrayList<>(repo.matches());
+    recent.sort((x, y) -> Long.compare(y.played(), x.played()));
+    if (recent.isEmpty()) {
+      gap();
+      body.addView(text("No matches yet. Add two teams in Teams, then start your first match.", 15, MUTED, false));
+      return;
+    }
+    body.addView(Ui.sectionTitle(this, pal, "Last " + Math.min(10, recent.size()) + " matches", null));
+    for (Match m : recent.subList(0, Math.min(10, recent.size()))) {
+      LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-1, -2);
+      lp.bottomMargin = dp(12);
+      body.addView(matchCard(m), lp);
+    }
   }
 
   private void roles() {
@@ -392,41 +736,106 @@ public class MainActivity extends AppCompatActivity {
   }
 
   private void home() {
-    heading(
-        "My cricket",
-        "Matches",
-        "Your live scores, teams and tournament fixtures.");
-    LinearLayout hero =
-        card(
-            "Match-day desk",
-            "Ready for the first ball?",
-            "Set up teams and officials, choose your local rules, and score with or without"
-                + " internet.");
-    action(
-        hero,
-        "Create a match",
-        () -> {
-          if (writable()) matchSetup(null, null);
-        });
-    action(
-        hero,
-        "Browse public live matches",
-        () -> startActivity(new Intent(this, SpectatorActivity.class)));
-    action(hero, "My phone account", () -> startActivity(new Intent(this, PlayerAccountActivity.class)));
-    action(hero, "Ground tools", () -> { page = "Tools"; draw(); });
-    action(hero, "Shop Boundary merchandise", () -> { page = "Store"; draw(); });
-    action(hero, "Community · players, opponents & officials", () -> startActivity(
-        new Intent(Intent.ACTION_VIEW,
-            Uri.parse("https://boundary-cricket-tournament.vercel.app/community.html"))));
-    for (Match m : repo.matches()) {
-      State s = m.state();
-      LinearLayout c =
-          card(
-              m.result().equals("Live") ? "IN PROGRESS" : m.result(),
-              m.name,
-              s.runs + "/" + s.wickets + " · " + s.overs(m.rules) + " overs\n" + m.venue);
-      action(c, "Open scorecard", () -> open(m));
+    body.setPadding(0, dp(4), 0, dp(24));
+    LinearLayout pad = Ui.column(this);
+    pad.setPadding(dp(16), 0, dp(16), 0);
+    body.addView(pad);
+
+    LinearLayout search = Ui.row(this);
+    search.setBackground(Ui.round(SURFACE2, dp(28)));
+    search.setPadding(dp(18), dp(14), dp(18), dp(14));
+    search.addView(new IconView(this, "search", MUTED), new LinearLayout.LayoutParams(dp(24), dp(24)));
+    TextView hint = Ui.text(this, "Search players, teams or matches", 16, MUTED, false);
+    hint.setPadding(dp(14), 0, 0, 0);
+    search.addView(hint);
+    search.setOnClickListener(v -> { page = "Search"; draw(); });
+    pad.addView(search);
+
+    LinearLayout follow = Ui.row(this);
+    follow.setPadding(0, dp(22), 0, dp(4));
+    android.widget.FrameLayout me = new android.widget.FrameLayout(this);
+    me.addView(Ui.avatar(this, pal, profile.photo(), profile.name(), 70));
+    View add = Ui.iconButton(this, pal, "plus", 26, GREEN, ON_ACCENT, null);
+    android.widget.FrameLayout.LayoutParams addLp = new android.widget.FrameLayout.LayoutParams(dp(26), dp(26), Gravity.BOTTOM | Gravity.END);
+    me.addView(add, addLp);
+    me.setOnClickListener(v -> startActivity(new Intent(this, ProfilePhotoActivity.class)));
+    me.setContentDescription("Add your profile photo");
+    follow.addView(me, new LinearLayout.LayoutParams(dp(74), dp(74)));
+    TextView bubble = Ui.text(this, "Follow your favourite cricketers to see their updates here.", 14, MUTED, false);
+    bubble.setBackground(Ui.outline(SURFACE, pal.line, dp(1), dp(16)));
+    bubble.setPadding(dp(16), dp(14), dp(16), dp(14));
+    bubble.setOnClickListener(v -> startActivity(new Intent(this, ProfileActivity.class).putExtra(ProfileActivity.EXTRA_TAB, "Connections")));
+    LinearLayout.LayoutParams bubbleLp = Ui.weight(1);
+    bubbleLp.leftMargin = dp(14);
+    follow.addView(bubble, bubbleLp);
+    pad.addView(follow);
+
+    pad.addView(Ui.sectionTitle(this, pal, "Matches of your interest", () -> { page = "Matches"; draw(); }));
+    List<Match> matches = repo.matches();
+    HorizontalScrollView carousel = new HorizontalScrollView(this);
+    carousel.setHorizontalScrollBarEnabled(false);
+    carousel.setClipToPadding(false);
+    carousel.setPadding(dp(16), 0, dp(16), 0);
+    LinearLayout cards = Ui.row(this);
+    cards.setGravity(Gravity.TOP);
+    int shown = 0;
+    for (Match m : matches) {
+      if (shown++ == 8) break;
+      LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(dp(300), -2);
+      lp.rightMargin = dp(12);
+      cards.addView(matchCard(m), lp);
     }
+    if (matches.isEmpty()) {
+      LinearLayout empty = Ui.card(this, pal);
+      empty.addView(Ui.text(this, "No matches yet", 18, INK, true));
+      TextView d = Ui.text(this, "Add two teams, then start your first match. Scoring works without internet.", 14, MUTED, false);
+      d.setPadding(0, dp(6), 0, dp(12));
+      empty.addView(d);
+      empty.addView(Ui.pill(this, pal, "Start a match", true, () -> guard(() -> { if (writable()) matchSetup(null, null); })));
+      cards.addView(empty, new LinearLayout.LayoutParams(dp(300), -2));
+    }
+    carousel.addView(cards);
+    body.addView(carousel);
+
+    LinearLayout pad2 = Ui.column(this);
+    pad2.setPadding(dp(16), dp(20), dp(16), 0);
+    body.addView(pad2);
+    LinearLayout live = Ui.row(this);
+    android.graphics.drawable.GradientDrawable g = new android.graphics.drawable.GradientDrawable(
+        android.graphics.drawable.GradientDrawable.Orientation.LEFT_RIGHT, new int[] {0xff0d4f37, 0xff147653});
+    g.setCornerRadius(dp(18));
+    live.setBackground(g);
+    live.setPadding(dp(18), dp(18), dp(18), dp(18));
+    android.widget.FrameLayout camera = new android.widget.FrameLayout(this);
+    camera.setBackground(Ui.round(0x33ffffff, dp(14)));
+    camera.addView(new IconView(this, "live", Color.WHITE), new android.widget.FrameLayout.LayoutParams(dp(44), dp(44), Gravity.CENTER));
+    live.addView(camera, new LinearLayout.LayoutParams(dp(96), dp(84)));
+    LinearLayout copy = Ui.column(this);
+    copy.setPadding(dp(16), 0, 0, 0);
+    copy.addView(Ui.text(this, "Let your cricket be seen, shared, and celebrated.", 17, Color.WHITE, true));
+    TextView start = Ui.text(this, "Start streaming", 13, 0xff0d4f37, true);
+    start.setBackground(Ui.round(0xffd0ed8c, dp(14)));
+    start.setPadding(dp(14), dp(8), dp(14), dp(8));
+    LinearLayout.LayoutParams startLp = new LinearLayout.LayoutParams(-2, -2);
+    startLp.topMargin = dp(10);
+    copy.addView(start, startLp);
+    live.addView(copy, Ui.weight(1));
+    live.setOnClickListener(v -> startActivity(new Intent(this, LiveStreamActivity.class)));
+    pad2.addView(live);
+
+    pad2.addView(Ui.sectionTitle(this, pal, "Cricketers following you", () ->
+        startActivity(new Intent(this, ProfileActivity.class).putExtra(ProfileActivity.EXTRA_TAB, "Connections"))));
+    LinearLayout followers = Ui.card(this, pal);
+    followers.addView(Ui.text(this, "Share your Boundary QR code so teammates can follow you.", 14, MUTED, false));
+    LinearLayout actions = Ui.row(this);
+    actions.setPadding(0, dp(12), 0, 0);
+    actions.addView(Ui.pill(this, pal, "My QR code", true, () -> startActivity(new Intent(this, ProfileActivity.class).putExtra(ProfileActivity.EXTRA_SHEET, "qr"))));
+    actions.addView(Ui.space(this, 10, 1));
+    actions.addView(Ui.pill(this, pal, "Live matches", false, () -> startActivity(new Intent(this, SpectatorActivity.class))));
+    followers.addView(actions);
+    pad2.addView(followers);
+
+    body = pad2;
     for (Scorebook sheet : repo.list("scorebook", Scorebook.class)) {
       StringBuilder summary = new StringBuilder(sheet.team + "\n");
       for (ImportedPlayer p : sheet.players)
@@ -437,13 +846,140 @@ public class MainActivity extends AppCompatActivity {
             .append(" (")
             .append(p.balls)
             .append(")\n");
+      gap();
       card("Imported past scorecard", sheet.name, summary.toString());
     }
-    if (repo.matches().isEmpty())
-      card(
-          "Your first match starts here",
-          "Start with your teams",
-          "Add squads in Teams, then create a match or generate a tournament schedule.");
+  }
+
+  /** CricHeroes-style match card: status strip, title, meta line, both scores, result, actions. */
+  private View matchCard(Match m) {
+    LinearLayout card = Ui.column(this);
+    card.setBackground(Ui.outline(SURFACE, pal.line, dp(1), dp(18)));
+    card.setClipToOutline(true);
+    String status = m.result();
+    boolean liveNow = status.equals("Live");
+    String tournamentName = "";
+    for (Tournament t : repo.tournaments()) if (t.id.equals(m.tournament)) tournamentName = t.name;
+    TextView strip = Ui.text(this, liveNow ? "Live now" : "Your match", 13, liveNow ? ON_ACCENT : GREEN, true);
+    strip.setBackground(Ui.round(liveNow ? GREEN : pal.accentSoft, 0));
+    strip.setPadding(dp(16), dp(10), dp(16), dp(10));
+    card.addView(strip, new LinearLayout.LayoutParams(-1, -2));
+    LinearLayout inner = Ui.column(this);
+    inner.setPadding(dp(16), dp(12), dp(16), dp(14));
+    card.addView(inner);
+    LinearLayout titleRow = Ui.row(this);
+    titleRow.addView(Ui.text(this, tournamentName.isEmpty() ? "Individual Match" : tournamentName, 16, INK, true), Ui.weight(1));
+    TextView badge = Ui.text(this, liveNow ? "Live" : "Result", 12, liveNow ? ON_ACCENT : INK, true);
+    badge.setBackground(Ui.round(liveNow ? pal.danger : SURFACE2, dp(12)));
+    badge.setPadding(dp(10), dp(4), dp(10), dp(4));
+    titleRow.addView(badge);
+    inner.addView(titleRow);
+    String when = new java.text.SimpleDateFormat("dd MMM yy", Locale.getDefault()).format(new Date(m.played()));
+    TextView meta = Ui.text(this, when + "  |  " + m.rules.overs + " Ov.  |  " + (m.venue.isEmpty() ? "Ground not recorded" : m.venue), 13, MUTED, false);
+    meta.setSingleLine(true);
+    meta.setEllipsize(android.text.TextUtils.TruncateAt.END);
+    meta.setPadding(0, dp(6), 0, dp(10));
+    inner.addView(meta);
+    inner.addView(Ui.divider(this, pal));
+    String winner = m.winner();
+    for (int i = 0; i < 2; i++) {
+      String team = i == 0 ? m.teamA : m.teamB;
+      String score = "Yet to bat";
+      for (int k = 0; k < Math.min(2, m.innings.size()); k++)
+        if (m.innings.get(k).battingTeam.equals(team)) {
+          State s = m.stateAt(k);
+          score = s.runs + "/" + s.wickets + "  (" + s.overs(m.rules) + " Ov)";
+        }
+      boolean strong = team.equals(winner) || winner == null && i == 0;
+      LinearLayout line = Ui.row(this);
+      line.setPadding(0, dp(10), 0, 0);
+      line.addView(Ui.text(this, team, 16, strong ? INK : MUTED, strong), Ui.weight(1));
+      line.addView(Ui.text(this, score, 15, strong ? INK : MUTED, strong));
+      inner.addView(line);
+    }
+    TextView result = Ui.text(this, liveNow ? m.current().battingTeam + " batting" : status, 14, INK, false);
+    result.setPadding(0, dp(12), 0, dp(10));
+    inner.addView(result);
+    LinearLayout chips = Ui.row(this);
+    chips.setGravity(Gravity.END);
+    chips.addView(Ui.chip(this, pal, "Insights", false, () -> matchDetail(m, "Summary")));
+    chips.addView(Ui.space(this, 8, 1));
+    chips.addView(Ui.chip(this, pal, "Squads", false, () -> matchDetail(m, "Squads")));
+    inner.addView(chips);
+    card.setOnClickListener(v -> matchDetail(m, liveNow ? "Scorecard" : "Summary"));
+    return card;
+  }
+
+  private void matchDetail(Match m, String tab) {
+    startActivity(new Intent(this, MatchDetailActivity.class)
+        .putExtra(MatchDetailActivity.EXTRA_MATCH_ID, m.id).putExtra(MatchDetailActivity.EXTRA_TAB, tab));
+  }
+
+  /** MatchDetailActivity's "Score this match" comes back here with the match to open. */
+  @Override
+  protected void onNewIntent(Intent intent) {
+    super.onNewIntent(intent);
+    String id = intent.getStringExtra(EXTRA_SCORE_MATCH);
+    if (id == null) return;
+    for (Match m : repo.matches()) if (m.id.equals(id)) { open(m); return; }
+  }
+
+  public static final String EXTRA_SCORE_MATCH = "scoreMatch";
+
+  /** Search across saved players, teams and matches. */
+  private void searchPage() {
+    EditText query = new EditText(this);
+    query.setHint("Search players, teams or matches");
+    query.setSingleLine();
+    query.setTextColor(INK);
+    query.setHintTextColor(MUTED);
+    query.setBackground(Ui.round(SURFACE2, dp(28)));
+    query.setPadding(dp(18), dp(14), dp(18), dp(14));
+    body.addView(query, new LinearLayout.LayoutParams(-1, -2));
+    LinearLayout results = Ui.column(this);
+    results.setPadding(0, dp(12), 0, 0);
+    body.addView(results);
+    List<Team> teams = repo.teams();
+    List<Match> matches = repo.matches();
+    Runnable render = () -> {
+      results.removeAllViews();
+      String q = query.getText().toString().trim().toLowerCase(Locale.ROOT);
+      if (q.isEmpty()) { results.addView(Ui.text(this, "Type a name to search this device's players, teams and scorecards.", 14, MUTED, false)); return; }
+      int found = 0;
+      for (Team t : teams) {
+        for (String p : t.players)
+          if (p.toLowerCase(Locale.ROOT).contains(q) && found++ < 40)
+            results.addView(searchRow("user", p, t.name, () -> playerOptions(t.name, p)));
+        if (t.name.toLowerCase(Locale.ROOT).contains(q) && found++ < 40)
+          results.addView(searchRow("team", t.name, t.players.size() + " players", () -> players(t)));
+      }
+      for (Match m : matches)
+        if ((m.name + " " + m.venue).toLowerCase(Locale.ROOT).contains(q) && found++ < 40)
+          results.addView(searchRow("bat", m.name, m.result(), () -> open(m)));
+      if (found == 0) results.addView(Ui.text(this, "Nothing matches “" + q + "”.", 14, MUTED, false));
+    };
+    query.addTextChangedListener(new android.text.TextWatcher() {
+      public void beforeTextChanged(CharSequence s, int a, int b, int c) {}
+      public void onTextChanged(CharSequence s, int a, int b, int c) { render.run(); }
+      public void afterTextChanged(android.text.Editable e) {}
+    });
+    render.run();
+    query.requestFocus();
+  }
+
+  private View searchRow(String icon, String title, String detail, Runnable action) {
+    LinearLayout r = Ui.row(this);
+    r.setPadding(dp(4), dp(12), dp(4), dp(12));
+    r.addView(Ui.iconButton(this, pal, icon, 40, SURFACE2, INK, null));
+    LinearLayout text = Ui.column(this);
+    text.setPadding(dp(14), 0, 0, 0);
+    text.addView(Ui.text(this, title, 16, INK, true));
+    TextView d = Ui.text(this, detail, 13, MUTED, false);
+    d.setPadding(0, dp(4), 0, 0);
+    text.addView(d);
+    r.addView(text, Ui.weight(1));
+    r.setOnClickListener(v -> guard(action));
+    return r;
   }
 
   private void open(Match m) {
@@ -763,6 +1299,12 @@ public class MainActivity extends AppCompatActivity {
     EditText venue = field(box, "Ground / turf", "", false),
         scorer = field(box, "Scorer", "", false),
         umpire = field(box, "Umpire", "", false);
+    String[] ballTypes = labels(PlayerProfile.BALL_TYPES, false),
+        matchTypes = labels(PlayerProfile.MATCH_TYPES, false),
+        pitchTypes = labels(PlayerProfile.PITCH_TYPES, true);
+    Spinner ballType = spinner(box, "Ball type", ballTypes),
+        matchType = spinner(box, "Match type", matchTypes),
+        pitchType = spinner(box, "Pitch type", pitchTypes);
     dialog(
         "Create match",
         box,
@@ -790,6 +1332,10 @@ public class MainActivity extends AppCompatActivity {
           m.venue = val(venue);
           m.scorer = val(scorer);
           m.umpire = val(umpire);
+          m.ballType = PlayerProfile.BALL_TYPES[ballType.getSelectedItemPosition()];
+          m.matchType = PlayerProfile.MATCH_TYPES[matchType.getSelectedItemPosition()];
+          m.pitchType = pitchType.getSelectedItemPosition() == 0 ? ""
+              : PlayerProfile.PITCH_TYPES[pitchType.getSelectedItemPosition() - 1];
           m.rules.players = Math.max(2, Math.min(first.players.size(), second.players.size()));
           m.rules.bowlerOvers = m.rules.overs;
           if (cup != null) m.tournament = cup.id;
@@ -801,6 +1347,13 @@ public class MainActivity extends AppCompatActivity {
                 playingSquadSetup(m, ta, tb, cup, fixture);
               });
         });
+  }
+
+  private static String[] labels(String[] codes, boolean notRecorded) {
+    List<String> out = new ArrayList<>();
+    if (notRecorded) out.add("Not recorded");
+    for (String code : codes) out.add(PlayerProfile.label(code));
+    return out.toArray(new String[0]);
   }
 
   private void playingSquadSetup(Match m, Team teamOne, Team teamTwo,
@@ -1787,9 +2340,39 @@ public class MainActivity extends AppCompatActivity {
                 if (!writable()) return;
                 getPreferences(0).edit().putString("addingPlayerTeam", t.id).apply();
                 startActivityForResult(new Intent(this, PlayerAccountActivity.class).putExtra("pick", true), 88);
-              } else career(t.players.get(w), t.name);
+              } else playerOptions(t.name, t.players.get(w));
             })
         .show();
+  }
+
+  private void playerOptions(String team, String player) {
+    ProfileStore me = new ProfileStore(this);
+    boolean mine = me.claims().contains(com.example.madfinalproject.domain.Career.key(team, player));
+    String[] options = {"Career profile", "Batting hand & bowling style", mine ? "This is not me" : "This is me"};
+    new AlertDialog.Builder(this).setTitle(player + " · " + team).setItems(options, (d, w) -> guard(() -> {
+      if (w == 0) career(player, team);
+      else if (w == 1) playerStyles(team, player);
+      else { me.claim(team, player, !mine); draw(); }
+    })).show();
+  }
+
+  /** Batting hand and bowling style power the right/left-hand and pace/spin splits. */
+  private void playerStyles(String team, String player) {
+    PlayerProfile profile = ProfileStore.find(repo, team, player);
+    LinearLayout box = form();
+    String[] hands = {"Not recorded", "Right-hand bat (RHB)", "Left-hand bat (LHB)"};
+    Spinner hand = spinner(box, "Batting hand", hands);
+    hand.setSelection(profile.battingHand.equals("RHB") ? 1 : profile.battingHand.equals("LHB") ? 2 : 0);
+    String[] styles = new String[PlayerProfile.BOWLING_STYLES.length + 1];
+    styles[0] = "Does not bowl / not recorded";
+    System.arraycopy(PlayerProfile.BOWLING_STYLES, 0, styles, 1, PlayerProfile.BOWLING_STYLES.length);
+    Spinner style = spinner(box, "Bowling style", styles);
+    style.setSelection(Math.max(0, Arrays.asList(styles).indexOf(profile.bowlingStyle)));
+    dialog(player, box, "Save styles", () -> {
+      profile.battingHand = hand.getSelectedItemPosition() == 1 ? "RHB" : hand.getSelectedItemPosition() == 2 ? "LHB" : "";
+      profile.bowlingStyle = style.getSelectedItemPosition() == 0 ? "" : styles[style.getSelectedItemPosition()];
+      ProfileStore.save(repo, profile);
+    });
   }
 
   private void career(String player, String team) {
@@ -1802,23 +2385,15 @@ public class MainActivity extends AppCompatActivity {
   }
 
   private void store() {
-    heading("Boundary club shop", "Wear your cricket", "T-shirts, full-sleeve jerseys, caps and bottles.");
-    LinearLayout shop = card("TEAMWEAR & ESSENTIALS", "Made for your match day",
-        "Choose your size, colour and material. Browse cotton, performance and premium options for teamwear, plus caps and bottles.");
-    action(shop, "Open shop & secure Razorpay checkout", () -> startActivity(new Intent(Intent.ACTION_VIEW,
-        Uri.parse("https://boundary-cricket-tournament.vercel.app/shop.html"))));
-    action(shop, "Terms & Conditions", () -> openPolicy("/terms.html"));
-    action(shop, "Privacy Policy", () -> openPolicy("/privacy.html"));
-    action(shop, "My orders", () -> startActivity(new Intent(Intent.ACTION_VIEW,
-        Uri.parse("https://boundary-cricket-tournament.vercel.app/shop.html#orders"))));
-    action(body, "Ground tools", () -> { page = "Tools"; draw(); });
+    body.addView(new StoreView(this, pal), new LinearLayout.LayoutParams(-1, -2));
   }
 
+  /** Umpire tools: hands-free voice commands and the square-leg stump cam. */
   private void tools() {
     heading(
-        "Intelligence & ground tools",
-        "Match-day toolkit",
-        "Voice, camera, imports, announcements and spectator publishing.");
+        "Umpire workspace",
+        "Umpire tools",
+        "Hands-free scoring commands and a square-leg review camera.");
     LinearLayout v =
         card(
             "Hands-free scorer",
@@ -1826,106 +2401,12 @@ public class MainActivity extends AppCompatActivity {
             "Speak scoring and correction commands. Each recognized command is confirmed before"
                 + " execution.");
     action(v, "Speak a command", this::voice);
-    LinearLayout a =
-        card(
-            "Stadium PA",
-            "Ground announcements",
-            pa
-                ? "Announcements enabled"
-                : "Connect a Bluetooth speaker using Android audio settings, then enable match"
-                    + " announcements.");
-    action(
-        a,
-        pa ? "Disable announcer" : "Enable announcer",
-        () -> {
-          pa = !pa;
-          draw();
-        });
-    LinearLayout f = card("Captain’s co-pilot", "Field placement radar", tactic());
-    FieldView field = new FieldView(this);
-    field.recommend(
-        batterHistory().zones,
-        match != null && match.state().legal < match.rules.powerplay * match.rules.ballsPerOver);
-    f.addView(field, new LinearLayout.LayoutParams(-1, dp(300)));
-    f.addView(text("Drag the nine fielders to adjust your plan.", 12, MUTED, false));
-    LinearLayout scan =
-        card(
-            "Paper scorebook",
-            "Import & review",
-            "Choose a scoresheet image, extract text, and review the result before adding a past"
-                + " match.");
-    action(scan, "Scan scorebook", () -> startActivity(new Intent(this, ScannerActivity.class)));
     LinearLayout cam =
         card(
             "Square-leg review",
             "Stump cam",
             "Record short rolling segments and retain the latest action for slow playback.");
     action(cam, "Open stump cam", () -> startActivity(new Intent(this, StumpCamActivity.class)));
-    LinearLayout stream = card("Camera & microphone", "Live broadcast",
-        "Stream to your RTMP service from this phone.");
-    action(stream, "Open live broadcast", () -> startActivity(new Intent(this, LiveStreamActivity.class)));
-    LinearLayout sync =
-        card("Public spectator scoreboard", "Publish match", Publication.status(this, repo));
-    action(
-        sync,
-        "Publish / sync saved matches",
-        () -> {
-          Publication.sync(this, repo);
-          Toast.makeText(this, "Sync requested", Toast.LENGTH_SHORT).show();
-        });
-    action(sync, "Recover full cloud match", this::recoverCloud);
-    action(sync, "Share broadcast overlay", () -> {
-      if (match == null) {
-        message("Select a match", "Open a match before sharing its broadcast scoreboard.");
-        return;
-      }
-      Intent share = new Intent(Intent.ACTION_SEND);
-      share.setType("text/plain");
-      share.putExtra(Intent.EXTRA_TEXT,
-          "Boundary broadcast scoreboard: " + match.name
-              + "\nhttps://boundary-cricket-tournament.vercel.app/overlay.html?match="
-              + Uri.encode(match.id)
-              + "\n\nAdd this URL as an OBS browser source (1280 x 720)."
-              + " Publish the match from Boundary to update the score."
-              + " This is a scoreboard overlay; video comes from your streaming setup.");
-      startActivity(Intent.createChooser(share, "Share broadcast overlay"));
-    });
-    action(
-        sync,
-        "Show match recovery code",
-        () -> {
-          if (!writable() || match == null) return;
-          String key = getSharedPreferences("publication", 0).getString("key-" + match.id, "");
-          if (key.isEmpty()) {
-            message(
-                "Publish first", "Score or publish this match before creating a recovery code.");
-            return;
-          }
-          message(
-              "Keep this code private",
-              match.id
-                  + ":"
-                  + key
-                  + "\n\n"
-                  + "This code gives full scoring access to this match. Keep it with the assigned"
-                  + " official.");
-        });
-    action(
-        sync,
-        "Switch to spectator",
-        () -> {
-          role = "Spectator";
-          getPreferences(0).edit().putString("role", role).apply();
-          draw();
-        });
-    action(
-        sync,
-        "Open spectator website",
-        () ->
-            startActivity(
-                new Intent(
-                    Intent.ACTION_VIEW,
-                    Uri.parse("https://boundary-cricket-tournament.vercel.app/"))));
   }
 
   private void recoverCloud() {
