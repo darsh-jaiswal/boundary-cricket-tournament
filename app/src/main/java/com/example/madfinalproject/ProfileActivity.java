@@ -637,7 +637,7 @@ public final class ProfileActivity extends AppCompatActivity {
     card.addView(resultLine);
     LinearLayout actions = Ui.row(this);
     actions.setGravity(Gravity.END);
-    actions.addView(Ui.chip(this, p, "Insights", false, () -> matchDetail(m, "Summary")));
+    actions.addView(Ui.chip(this, p, "Summary", false, () -> matchDetail(m, "Summary")));
     actions.addView(Ui.space(this, 8, 1));
     actions.addView(Ui.chip(this, p, "Squads", false, () -> matchDetail(m, "Squads")));
     card.addView(actions);

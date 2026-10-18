@@ -129,7 +129,7 @@ public final class Ui {
     return b;
   }
 
-  /** Small rounded chip, e.g. "Insights", "Squads", filter selectors. */
+  /** Small rounded chip, e.g. "Summary", "Squads", filter selectors. */
   public static TextView chip(Context c, Palette p, String label, boolean selected, Runnable action) {
     TextView b = text(c, label, 13, selected ? p.onAccent : p.ink, true);
     b.setGravity(Gravity.CENTER);
