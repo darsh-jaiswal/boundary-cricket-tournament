@@ -898,7 +898,7 @@ public final class PerformanceActivity extends AppCompatActivity {
     box.addView(title);
     box.addView(Ui.text(this, "Boundary needs to know which squad places are you. In Teams, open a team, tap your name "
         + "and choose \"This is me\". Or link your Google player account, and every squad place registered with your "
-        + "number counts as you.", 14, p.muted, false));
+        + "account counts as you.", 14, p.muted, false));
     if (!PlayerAccount.linked(this)) {
       LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-2, -2);
       lp.topMargin = dp(16);
