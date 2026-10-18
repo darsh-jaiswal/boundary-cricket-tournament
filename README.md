@@ -4,15 +4,15 @@ Native Android application written in Java for local, college, turf and club cri
 
 - Spectator site: https://boundary-cricket-tournament.vercel.app/
 - Source: https://github.com/darsh-jaiswal/boundary-cricket-tournament
-- [Download the signed Android APK](https://boundary-cricket-tournament.vercel.app/downloads/Boundary-Android-arm64.apk?v=1.0.6) for a modern physical Android phone.
+- [Download the signed Android APK](https://boundary-cricket-tournament.vercel.app/downloads/Boundary-Android-arm64.apk?v=1.0.7) for a modern physical Android phone.
 - Emulator: `app/build/outputs/apk/debug/app-x86_64-debug.apk`.
 - Universal build: `app/build/outputs/apk/debug/app-universal-debug.apk`.
 
 ## First use
 
-Version 1.0.6 includes the latest home, profile, match detail, store, player connections and performance screens, plus scoring fixes. See [1.0.6 notes](docs/RELEASE_1.0.6.md).
+Version 1.0.7 replaces phone verification with Google player registration. Teams add registered players using their Google email or player code. Community and shop use Google sign-in; checkout explains when stock and delivery setup are incomplete. See [1.0.7 notes](docs/RELEASE_1.0.7.md).
 
-Version 1.0.5 removes the PIN flow, adds registered-phone squad eligibility, comparison charts, merchandise catalog with Razorpay checkout infrastructure, and Terms and Privacy pages. The shop stays in preview until inventory and fulfilment are configured. Clerk phone/SMS must be enabled to complete player registration. See [1.0.5 notes](docs/RELEASE_1.0.5.md).
+Version 1.0.5 removes the PIN flow, adds Google-registered squad eligibility, comparison charts, merchandise catalog with Razorpay checkout infrastructure, and Terms and Privacy pages. The shop stays in preview until inventory and fulfilment are configured. Google login is enabled in Clerk; each player must complete Boundary registration before joining a new squad. See [1.0.5 notes](docs/RELEASE_1.0.5.md).
 
 Version 1.0.4 adds reversible innings endings, wicket and extras corrections, bowler changes, five match-format presets, and repeatable Super Overs after a tie. These rules apply offline and flow into scorecards, tournament results, and public match pages. Version 1.0.3 added toss, playing squad and opener setup, official match controls, and push-to-talk voice scoring. Version 1.0.2 added player profiles and local rankings, match graphs and awards,
 NRR scenarios, squad availability, a dark navigation shell, and RTMP camera

@@ -1,3 +1,4 @@
+import {account,verifiedGoogle} from './account.js';
 const status = document.querySelector('#status');
 const posts = document.querySelector('#posts');
 const composer = document.querySelector('#composer');
@@ -73,22 +74,15 @@ document.querySelector('#post-form').onsubmit=async event=>{
 };
 try {
   const {publishableKey}=await api('GET',undefined,'?config=1');
-  const domain=atob(publishableKey.split('_')[2]).replace(/\$$/,'');
-  if(!/^[a-z0-9.-]+$/i.test(domain))throw new Error('Invalid sign-in configuration');
-  await script(`https://${domain}/npm/@clerk/ui@1/dist/ui.browser.js`);
-  await script(`https://${domain}/npm/@clerk/clerk-js@6/dist/clerk.browser.js`,publishableKey);
-  clerk=window.Clerk;await clerk.load({ui:{ClerkUI:window.__internal_ClerkUICtor}});
   const requestedCategory=new URLSearchParams(location.search).get('category');
   const categorySelect=document.querySelector('[name="category"]');
   if([...categorySelect.options].some(option=>option.value===requestedCategory))categorySelect.value=requestedCategory;
-  function account() {
-    const target=document.querySelector('#account');target.replaceChildren();
-    composer.hidden=!clerk.isSignedIn;
-    const signIn=document.querySelector('#sign-in');signIn.replaceChildren();
-    const phoneGate=document.querySelector('#phone-gate');phoneGate.replaceChildren();
-    if(clerk.isSignedIn){clerk.mountUserButton(target);const verified=clerk.user?.phoneNumbers?.some(phone=>phone.verification?.status==='verified');phoneGate.textContent=verified?`Signed in${clerk.user?.primaryPhoneNumber?.phoneNumber?' as '+clerk.user.primaryPhoneNumber.phoneNumber:''} · phone verified. You can post and reply.`:'Add and verify a phone number from your account menu to post or reply.';composer.hidden=!verified;if(!verified)message('Verify a phone number on your account before posting or replying.',true);}
-    else {composer.hidden=true;const button=el('button','Sign in / register');button.onclick=()=>clerk.mountSignIn(signIn);target.append(button);phoneGate.append(el('p','A registered, verified phone number is required for player accounts.'));}
+  await account(publishableKey,document.querySelector('#account'),value=>{
+    clerk=value;
+    const verified=verifiedGoogle(clerk);
+    composer.hidden=!verified;
+    document.querySelector('#account-gate').textContent=verified?'Google account connected. You can post and reply.':'Continue with Google to post and reply. No phone number is required.';
     render();
-  }
-  clerk.addListener(account);account();await load();
+  });
+  await load();
 }catch(error){await load();message(`Sign-in unavailable: ${error.message}. Public posts remain readable.`,true);}

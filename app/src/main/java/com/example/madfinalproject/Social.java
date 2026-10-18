@@ -95,7 +95,7 @@ public final class Social {
   }
 
   static final String NOT_DEPLOYED = "Connections need the latest Boundary server update.";
-  static final String LINK_FIRST = "Link your phone account to follow players.";
+  static final String LINK_FIRST = "Link your Google player account to follow players.";
   static final String NOT_A_PLAYER = "That is not a Boundary player code";
   static final String UNAVAILABLE = "Player service is unavailable. Please retry.";
 

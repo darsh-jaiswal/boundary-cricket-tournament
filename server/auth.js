@@ -1,5 +1,6 @@
 import { createClerkClient } from '@clerk/backend';
 import { neon } from '@neondatabase/serverless';
+import { googleEmail } from './player-identity.js';
 
 export const APP_ORIGIN = 'https://boundary-cricket-tournament.vercel.app';
 let client, database;
@@ -24,10 +25,9 @@ export async function verifiedMember(req) {
   const auth = state.toAuth();
   if (!auth?.userId) throw new HttpError(401, 'Sign in to continue');
   const user = await clerk().users.getUser(auth.userId);
-  const phone = user.phoneNumbers?.find(p => p.id === user.primaryPhoneNumberId && p.verification?.status === 'verified')
-    || user.phoneNumbers?.find(p => p.verification?.status === 'verified');
-  if (!phone) throw new HttpError(403, 'Add and verify your phone number in your account before continuing');
-  return { id: user.id, name: user.fullName || user.username || 'Boundary player', phone: phone.phoneNumber };
+  const email = googleEmail(user);
+  if (!email) throw new HttpError(403, 'Sign in with Google to continue. Connect Google in your account if you previously used email sign-in.');
+  return { id: user.id, name: user.fullName || user.username || 'Boundary player', email };
 }
 export function bodyOf(req, limit = 12000) {
   let value;

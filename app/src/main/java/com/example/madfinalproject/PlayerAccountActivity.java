@@ -13,12 +13,12 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import org.json.JSONObject;
 
-/** Browser phone registration and private registered-player lookup; there is no local PIN. */
+/** Browser Google registration and private registered-player lookup; there is no local PIN. */
 public final class PlayerAccountActivity extends AppCompatActivity {
   private final ExecutorService network = Executors.newSingleThreadExecutor();
   private LinearLayout body;
   private TextView status;
-  private EditText phone;
+  private EditText identifier;
   private boolean busy;
   @Override public void onCreate(Bundle state) {
     super.onCreate(state);
@@ -26,15 +26,15 @@ public final class PlayerAccountActivity extends AppCompatActivity {
     int pad = dp(22); body.setPadding(pad, pad, pad, pad); body.setBackgroundColor(0xfff3f6ef); scroll.addView(body);
     setContentView(scroll); UiInsets.apply(scroll);
     action("Back", this::finish); label("Your player account", 28);
-    label("Register with a verified phone number. Only registered players can be selected for new matches.", 15);
-    status = label(PlayerAccount.linked(this) ? "Phone account linked to this device." : "Link your phone account to add registered players.", 15);
-    action("Register / link phone account", this::begin);
+    label("Sign in with Google and register your player account. Only registered Google players can join teams and new matches.", 15);
+    status = label(PlayerAccount.linked(this) ? "Google player account linked to this device." : "Link your Google player account to add registered players.", 15);
+    action("Sign in with Google / link account", this::begin);
     action("Check account link", this::check);
     action("Open player registration", () -> startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(PlayerAccount.ORIGIN + "/player.html"))));
     if (getIntent().getBooleanExtra("pick", false)) {
-      label("Add by phone number", 22);
-      label("Ask the player for their registered phone number, including country code. Indian ten-digit mobile numbers use +91.", 14);
-      phone = new EditText(this); phone.setHint("+91 mobile number"); phone.setInputType(android.text.InputType.TYPE_CLASS_PHONE); body.addView(phone);
+      label("Add a registered player", 22);
+      label("Ask for the Google email or Boundary player code they used to register. Only registered Google players can be added.", 14);
+      identifier = new EditText(this); identifier.setHint("Google email or player code"); identifier.setInputType(android.text.InputType.TYPE_CLASS_TEXT | android.text.InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS); body.addView(identifier);
       action("Find registered player", this::lookup);
     }
     action("Unlink this device", () -> call(() -> {
@@ -55,19 +55,19 @@ public final class PlayerAccountActivity extends AppCompatActivity {
     JSONObject result = PlayerAccount.request(this, null);
     boolean linked = "linked".equals(result.optString("status"));
     android.content.SharedPreferences.Editor account = getSharedPreferences("boundary-account", 0).edit().putBoolean("linked", linked);
-    // Kept so the profile can find this person's phone-registered squad places across teams.
+    // Kept so the profile can find this person's Google-registered squad places across teams.
     if (linked) account.putString("id", result.optString("id")).putString("name", result.optString("name"));
     account.apply();
     runOnUiThread(() -> status.setText(linked ? "Linked as " + result.optString("name") + ". You can add registered players."
         : "Still waiting. Register your player account and tap Link my Boundary app in the browser."));
   }); }
   private void lookup() {
-    final String number = phone.getText().toString();
+    final String player = identifier.getText().toString().trim();
     call(() -> {
-      JSONObject result = PlayerAccount.request(this, new JSONObject().put("action", "lookup").put("phone", number));
-      if (!result.optBoolean("verified")) throw new IllegalStateException("Player phone is not verified");
+      JSONObject result = PlayerAccount.request(this, new JSONObject().put("action", "lookup").put("identifier", player));
+      if (!result.optBoolean("verified")) throw new IllegalStateException("Player is not Google registered");
       runOnUiThread(() -> new android.app.AlertDialog.Builder(this).setTitle(result.optString("name"))
-          .setMessage("Registered phone account. Add this player to the team?")
+          .setMessage("Registered Google player. Add this player to the team?")
           .setNegativeButton("Cancel", null).setPositiveButton("Add player", (dialog, which) -> {
             setResult(RESULT_OK, new Intent().putExtra("playerId", result.optString("id")).putExtra("playerName", result.optString("name")));
             finish();

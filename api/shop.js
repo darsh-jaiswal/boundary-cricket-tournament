@@ -67,7 +67,7 @@ export default async function handler(req, res) {
       return res.status(200).json(publicOrder(await reconcile(sql, order)));
     }
     if (body.action !== 'checkout') throw new HttpError(400,'Unknown action');
-    if(body.termsVersion!=='2026-10-18')throw new HttpError(400,'Please accept the current Terms & Conditions before ordering');
+    if(body.termsVersion!=='2026-10-19')throw new HttpError(400,'Please accept the current Terms & Conditions before ordering');
     if (!open()) throw new HttpError(503,'The store is preparing for launch. Checkout opens once stock and delivery are confirmed.');
     if (!uuid(body.requestId) || !Array.isArray(body.items) || body.items.length < 1 || body.items.length > 10
         || body.items.some(i => !i || typeof i.variantId !== 'string' || i.variantId.length > 100
@@ -76,7 +76,7 @@ export default async function handler(req, res) {
     if (!address || ['name','address','city','state'].some(k => typeof address[k] !== 'string' || address[k].trim().length < 2 || address[k].length > 250)
         || !/^[1-9][0-9]{5}$/.test(address.pincode || '')) throw new HttpError(400,'Complete the Indian delivery address and six-digit PIN code');
     const shipping = { name: address.name.trim(), address: address.address.trim(), city: address.city.trim(),
-      state: address.state.trim(), pincode: address.pincode, country: 'IN', phone: user.phone };
+      state: address.state.trim(), pincode: address.pincode, country: 'IN', email: user.email };
     const rows = await sql`SELECT * FROM boundary_reserve_shop_order(${randomUUID()}::uuid,${user.id},
       ${body.requestId}::uuid,${JSON.stringify(body.items)}::jsonb,${JSON.stringify(shipping)}::jsonb,${shippingFee()})`;
     let order = await recoverGatewayOrder(sql,rows[0]);
@@ -97,7 +97,7 @@ export default async function handler(req, res) {
       }
     }
     if (!order.razorpay_order_id) throw new HttpError(409,'This order is being checked. Open My orders before retrying.');
-    return res.status(200).json({...publicOrder(order),prefill:{name:shipping.name,contact:user.phone}});
+    return res.status(200).json({...publicOrder(order),prefill:{name:shipping.name,email:user.email}});
   } catch (error) {
     const businessError = /item_unavailable|invalid_cart|pending_order_limit|gateway_in_progress|already_paid/.exec(error.message || '')?.[0];
     const messages = {item_unavailable:'A selected size or material is unavailable. Refresh your cart.',invalid_cart:'Invalid cart',

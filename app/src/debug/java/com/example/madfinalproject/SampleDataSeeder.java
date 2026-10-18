@@ -66,7 +66,7 @@ public class SampleDataSeeder extends Activity {
         ProfileStore.save(repo, p);
       }
     ProfileStore me = new ProfileStore(context);
-    me.saveDetails("Ritul Jaiswal", "+91 98765 43210", "ritul@example.com");
+    me.saveDetails("Ritul Jaiswal", "ritul@example.com");
     me.claim("Shirpur", "Ritul Jaiswal", true);
     me.claim("Boundary XI", "Ritul J", true);
     PlayerProfile mine = new PlayerProfile();

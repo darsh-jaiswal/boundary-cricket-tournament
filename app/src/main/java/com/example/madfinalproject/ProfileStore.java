@@ -17,7 +17,7 @@ import java.util.Set;
 
 /**
  * The device owner's own profile: display details, photo and which saved squad entries are them.
- * Identity comes from phone-registered squad places for the linked account, plus places claimed here.
+ * Identity comes from Google-registered squad places for the linked account, plus places claimed here.
  */
 public final class ProfileStore {
   private static final String PREFS = "boundary-profile";
@@ -27,6 +27,7 @@ public final class ProfileStore {
   public ProfileStore(Context context) {
     this.context = context.getApplicationContext();
     prefs = this.context.getSharedPreferences(PREFS, 0);
+    if (prefs.contains("phone")) prefs.edit().remove("phone").apply();
   }
 
   public String name() {
@@ -34,12 +35,11 @@ public final class ProfileStore {
     if (!saved.isEmpty()) return saved;
     return context.getSharedPreferences("boundary-account", 0).getString("name", "");
   }
-  public String phone() { return prefs.getString("phone", ""); }
   public String email() { return prefs.getString("email", ""); }
   public String accountId() { return context.getSharedPreferences("boundary-account", 0).getString("id", ""); }
 
-  public void saveDetails(String name, String phone, String email) {
-    prefs.edit().putString("name", name.trim()).putString("phone", phone.trim()).putString("email", email.trim()).apply();
+  public void saveDetails(String name, String email) {
+    prefs.edit().putString("name", name.trim()).putString("email", email.trim()).apply();
   }
 
   public File photo() { return new File(new File(context.getFilesDir(), "profile"), "photo.jpg"); }

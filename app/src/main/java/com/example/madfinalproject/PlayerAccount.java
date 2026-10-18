@@ -8,7 +8,7 @@ import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import org.json.JSONObject;
 
-/** Phone account sessions are issued only after browser approval and server-side verification. */
+/** Google account sessions are issued only after browser approval and server-side verification. */
 public final class PlayerAccount {
   private PlayerAccount() {}
   public static final String ORIGIN = "https://boundary-cricket-tournament.vercel.app";
