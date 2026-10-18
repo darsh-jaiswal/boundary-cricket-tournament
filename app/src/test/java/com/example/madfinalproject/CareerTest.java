@@ -165,6 +165,25 @@ public class CareerTest {
   }
 
   @Test
+  public void runOutAtTheNonStrikersEndCreditsNoRunsOrZoneToTheNonStriker() {
+    Match m = match("Lions", "Tigers", "Ravi", "Dev", "Kabir");
+    Event e = new Event();
+    e.dismissal = Dismissal.RUN_OUT; // Ravi hits 1 to long on, Dev is run out going for the second
+    e.bat = 1;
+    e.completed = 1;
+    e.zone = 4;
+    e.nonStrikerOut = true;
+    e.incoming = "Sam";
+    e.fielder = "Arjun";
+    m.add(e);
+    Career dev = Career.of(Collections.singletonList(m), new Career.Who("Dev").add("Lions", "Dev"), null);
+    assertEquals(Integer.valueOf(1), dev.outTypes().get("Run out"));
+    assertEquals(0, Career.zoneRuns(dev.faced)[4]);
+    assertEquals(0.0, Career.runTypes(dev.faced)[1], 0.001);
+    assertEquals(0, dev.againstBowlers().getOrDefault("Kabir", new int[5])[0]);
+  }
+
+  @Test
   public void partnershipsSplitRunsBetweenTheTwoBatters() {
     Match m = match("Lions", "Tigers", "Ravi", "Dev", "Kabir");
     run(m, 1, -1); // Ravi 1, Dev on strike

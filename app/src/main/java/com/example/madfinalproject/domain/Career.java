@@ -75,8 +75,9 @@ public final class Career {
     public String batter, bowler;
     public Extra extra;
     public Dismissal dismissal = Dismissal.NONE;
-    public boolean batterOut, boundary, legal;
-    public boolean faced() { return extra != Extra.WIDE && extra != Extra.PENALTY; }
+    public boolean batterOut, boundary, legal, nonStrikerEnd;
+    /** A delivery the batter received; a run-out at the non-striker's end is a dismissal, not a ball faced. */
+    public boolean faced() { return !nonStrikerEnd && extra != Extra.WIDE && extra != Extra.PENALTY; }
     public boolean bowlerWicket() {
       return dismissal != Dismissal.NONE && dismissal != Dismissal.RUN_OUT && dismissal != Dismissal.OBSTRUCTING;
     }
@@ -179,7 +180,14 @@ public final class Career {
     Ball ball = ball(row, index, p, order);
     ball.batterOut = out;
     if (me.equals(p.strikerBefore)) faced.add(ball);
-    else if (out) faced.add(ball); // non-striker run out: counts as a dismissal, not a ball faced
+    else if (out) {
+      // Run out at the non-striker's end: the dismissal is theirs, the runs and direction are the striker's.
+      ball.nonStrikerEnd = true;
+      ball.batRuns = 0;
+      ball.zone = -1;
+      ball.boundary = false;
+      faced.add(ball);
+    }
     return ball;
   }
 
