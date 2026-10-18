@@ -4,11 +4,13 @@ Native Android application written in Java for local, college, turf and club cri
 
 - Spectator site: https://boundary-cricket-tournament.vercel.app/
 - Source: https://github.com/darsh-jaiswal/boundary-cricket-tournament
-- [Download the signed Android APK](https://boundary-cricket-tournament.vercel.app/downloads/Boundary-Android-arm64.apk?v=1.0.5) for a modern physical Android phone.
+- [Download the signed Android APK](https://boundary-cricket-tournament.vercel.app/downloads/Boundary-Android-arm64.apk?v=1.0.6) for a modern physical Android phone.
 - Emulator: `app/build/outputs/apk/debug/app-x86_64-debug.apk`.
 - Universal build: `app/build/outputs/apk/debug/app-universal-debug.apk`.
 
 ## First use
+
+Version 1.0.6 includes the latest home, profile, match detail, store, player connections and performance screens, plus scoring fixes. See [1.0.6 notes](docs/RELEASE_1.0.6.md).
 
 Version 1.0.5 removes the PIN flow, adds registered-phone squad eligibility, comparison charts, merchandise catalog with Razorpay checkout infrastructure, and Terms and Privacy pages. The shop stays in preview until inventory and fulfilment are configured. Clerk phone/SMS must be enabled to complete player registration. See [1.0.5 notes](docs/RELEASE_1.0.5.md).
 

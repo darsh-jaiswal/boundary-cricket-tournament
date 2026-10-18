@@ -1,6 +1,6 @@
 {
-  "source": "https://github.com/darsh-jaiswal/boundary-cricket-tournament/releases/download/v1.0.5/Boundary-Android-arm64.apk",
-  "sha256": "c0b1ee62c5b5efe561f6770540834e5a025ed2ac6c7360c7c5b742787cc2b5b8",
-  "version": "1.0.5",
-  "bytes": 94751987
+    "source":  "https://github.com/darsh-jaiswal/boundary-cricket-tournament/releases/download/v1.0.6/Boundary-Android-arm64.apk",
+    "sha256":  "ed62f2151ba6b03f32cb06f1cb7f8ab5e6846500135f6cf3a4caabcd4b00a488",
+    "version":  "1.0.6",
+    "bytes":  95120079
 }
