@@ -18,15 +18,16 @@ import androidx.core.view.WindowInsetsCompat;
 import com.example.madfinalproject.data.Repository;
 import com.example.madfinalproject.domain.Cricket;
 import com.example.madfinalproject.domain.Leaderboards;
+import com.example.madfinalproject.domain.RegisteredPlayer;
 import com.example.madfinalproject.domain.Cricket.*;
 import java.util.*;
 import java.util.function.Consumer;
 
 public class MainActivity extends AppCompatActivity {
-  private static final int INK = 0xfff1f1f1,
-      GREEN = 0xff159a96,
-      PAPER = 0xff090909,
-      MUTED = 0xffb1b1b1,
+  private static final int INK = 0xff17251d,
+      GREEN = 0xff147653,
+      PAPER = 0xfff3f6ef,
+      MUTED = 0xff66756b,
       LIME = 0xffd0ed8c;
   private Repository repo;
   private Match match;
@@ -40,6 +41,7 @@ public class MainActivity extends AppCompatActivity {
   @Override
   public void onCreate(Bundle state) {
     super.onCreate(state);
+    androidx.core.view.WindowCompat.setDecorFitsSystemWindows(getWindow(), true);
     repo = new Repository(this);
     String id = getPreferences(0).getString("active", "");
     for (Match m : repo.matches()) if (m.id.equals(id)) match = m;
@@ -131,7 +133,7 @@ public class MainActivity extends AppCompatActivity {
     LinearLayout c = new LinearLayout(this);
     c.setOrientation(1);
     c.setPadding(dp(17), dp(16), dp(17), dp(16));
-    c.setBackground(bg(0xff1e1e1e, 18));
+    c.setBackground(bg(Color.WHITE, 18));
     LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(-1, -2);
     p.bottomMargin = dp(12);
     body.addView(c, p);
@@ -184,17 +186,20 @@ public class MainActivity extends AppCompatActivity {
           return insets;
         });
     LinearLayout head = new LinearLayout(this);
-    head.setPadding(dp(18), dp(8), dp(18), dp(4));
+    head.setPadding(dp(18), dp(8), dp(18), dp(8));
     head.setGravity(Gravity.CENTER_VERTICAL);
-    head.setBackgroundColor(0xff1e1e1e);
-    head.addView(text("Boundary", 22, Color.WHITE, true), new LinearLayout.LayoutParams(0, dp(42), 1));
-    head.addView(button(role + " ▾", false, this::roles));
+    head.setBackgroundColor(Color.WHITE);
+    head.addView(text("Boundary", 22, GREEN, true), new LinearLayout.LayoutParams(0, dp(42), 1));
+    Button roleButton = button(role + " ▾", false, this::roles);
+    roleButton.setMinWidth(0);
+    roleButton.setPadding(dp(8), 0, dp(8), 0);
+    head.addView(roleButton);
     Button create = button("+", true, this::quickCreate);
     create.setContentDescription("Create match, tournament, team or broadcast");
     head.addView(create, new LinearLayout.LayoutParams(dp(52), dp(48)));
     root.addView(head);
     if (isMyCricket()) {
-      TextView section = text("Your Cricket", 27, 0xffff6470, false);
+      TextView section = text("Your Cricket", 27, GREEN, false);
       section.setPadding(dp(18), dp(12), dp(18), dp(10));
       root.addView(section);
       HorizontalScrollView strip = new HorizontalScrollView(this);
@@ -205,7 +210,7 @@ public class MainActivity extends AppCompatActivity {
       for (int index = 0; index < keys.length; index++) {
         final String key = keys[index];
         Button tab = button(names[index], false, () -> { page = key; draw(); });
-        tab.setTextColor(key.equals(page) ? 0xffff6470 : MUTED);
+        tab.setTextColor(key.equals(page) ? GREEN : MUTED);
         tabs.addView(tab);
       }
       strip.addView(tabs);
@@ -218,8 +223,8 @@ public class MainActivity extends AppCompatActivity {
     scroll.addView(body);
     root.addView(scroll, new LinearLayout.LayoutParams(-1, 0, 1));
     LinearLayout nav = new LinearLayout(this);
-    nav.setBackgroundColor(0xff1e1e1e);
-    for (String tab : new String[] {"Home", "Looking", "Matches", "Community", "Tools"}) {
+    nav.setBackgroundColor(Color.WHITE);
+    for (String tab : new String[] {"Home", "Looking", "Matches", "Community", "Store"}) {
       Button b =
           button(
               tab.equals("Matches") ? "My Cricket" : tab,
@@ -229,8 +234,8 @@ public class MainActivity extends AppCompatActivity {
                 draw();
               });
       b.setTextSize(10);
-      b.setBackgroundTintList(android.content.res.ColorStateList.valueOf(0xff1e1e1e));
-      b.setTextColor(tab.equals(page) || tab.equals("Matches") && isMyCricket() ? 0xffff6470 : MUTED);
+      b.setBackgroundTintList(android.content.res.ColorStateList.valueOf(Color.WHITE));
+      b.setTextColor(tab.equals(page) || tab.equals("Matches") && isMyCricket() ? GREEN : MUTED);
       b.setPadding(0, 0, 0, 0);
       nav.addView(b, new LinearLayout.LayoutParams(0, dp(48), 1));
     }
@@ -255,6 +260,9 @@ public class MainActivity extends AppCompatActivity {
         break;
       case "Teams":
         teams();
+        break;
+      case "Store":
+        store();
         break;
       case "Tools":
         tools();
@@ -344,7 +352,12 @@ public class MainActivity extends AppCompatActivity {
         .setItems(
             rs,
             (d, w) -> {
-              role = rs[w];
+              String selectedRole = rs[w];
+              if (selectedRole.equals("Player") && !PlayerAccount.linked(this)) {
+                startActivity(new Intent(this, PlayerAccountActivity.class));
+                return;
+              }
+              role = selectedRole;
               getPreferences(0).edit().putString("role", role).apply();
               if (match != null && (role.equals("Scorer") || role.equals("Umpire"))) page = "Score";
               draw();
@@ -359,7 +372,7 @@ public class MainActivity extends AppCompatActivity {
           "Choose the assigned organizer, scorer or umpire workspace to make match changes.");
       return false;
     }
-    return OfficialAccess.require(this);
+    return true;
   }
 
   private void home() {
@@ -383,6 +396,9 @@ public class MainActivity extends AppCompatActivity {
         hero,
         "Browse public live matches",
         () -> startActivity(new Intent(this, SpectatorActivity.class)));
+    action(hero, "My phone account", () -> startActivity(new Intent(this, PlayerAccountActivity.class)));
+    action(hero, "Ground tools", () -> { page = "Tools"; draw(); });
+    action(hero, "Shop Boundary merchandise", () -> { page = "Store"; draw(); });
     action(hero, "Community · players, opponents & officials", () -> startActivity(
         new Intent(Intent.ACTION_VIEW,
             Uri.parse("https://boundary-cricket-tournament.vercel.app/community.html"))));
@@ -777,40 +793,66 @@ public class MainActivity extends AppCompatActivity {
     Team second = m.teamB.equals(teamOne.name) ? teamOne : teamTwo;
     choosePlayingSquad(first, m.rules.players, selectedFirst ->
         choosePlayingSquad(second, m.rules.players, selectedSecond -> {
-          m.rosterA.addAll(selectedFirst);
-          m.rosterB.addAll(selectedSecond);
-          LinearLayout box = form();
-          String[] names = selectedFirst.toArray(new String[0]);
-          Spinner striker = spinner(box, "Opening striker", names);
-          Spinner partner = spinner(box, "Opening partner", names);
-          partner.setSelection(1);
-          dialog("Opening batters · " + first.name, box, "Start match", () -> {
-            String p = (String) striker.getSelectedItem(), q = (String) partner.getSelectedItem();
-            if (p.equals(q)) throw new IllegalArgumentException("Choose different openers.");
-            m.innings.add(new Innings(m.teamA, m.teamB, p, q, 0));
-            String oldFixtureMatchId = fixture == null ? "" : fixture.matchId;
-            try {
-              if (fixture == null) repo.save(m);
-              else {
-                fixture.matchId = m.id;
-                repo.saveFixtureMatch(m, cup);
-              }
-            } catch (RuntimeException error) {
-              if (fixture != null) fixture.matchId = oldFixtureMatchId;
-              m.innings.clear();
-              throw error;
+          org.json.JSONArray ids = new org.json.JSONArray();
+          Set<String> distinct = new HashSet<>();
+          for (Team team : Arrays.asList(first, second)) {
+            List<String> names = team == first ? selectedFirst : selectedSecond;
+            for (String name : names) {
+              String id = registeredId(team.id, name);
+              if (id.isEmpty()) { message("Phone registration required", name + " must be added by their registered phone number first."); return; }
+              if (!distinct.add(id)) { message("Duplicate player", "The same registered player cannot play for both sides or occupy two squad places."); return; }
+              ids.put(id);
             }
-            open(m);
-          });
+          }
+          Toast.makeText(this, "Checking player registrations?", Toast.LENGTH_SHORT).show();
+          new Thread(() -> {
+            try {
+              PlayerAccount.request(this, new org.json.JSONObject().put("action", "validate").put("ids", ids));
+              runOnUiThread(() -> {
+                if (isFinishing() || isDestroyed()) return;
+                m.rosterA.clear(); m.rosterB.clear(); m.rosterA.addAll(selectedFirst); m.rosterB.addAll(selectedSecond);
+                openingBatters(m, first, selectedFirst, cup, fixture);
+              });
+            } catch (Exception error) { runOnUiThread(() -> {
+              if (!isFinishing() && !isDestroyed()) message("Player registration check", error.getMessage() == null ? "Connect to the internet and check your phone account." : error.getMessage());
+            }); }
+          }, "Boundary-player-check").start();
         }));
+  }
+
+  private String registeredId(String teamId, String name) {
+    for (RegisteredPlayer p : repo.list("registered-player", RegisteredPlayer.class))
+      if (p.teamId.equals(teamId) && p.name.equals(name)) return p.accountId;
+    return "";
+  }
+
+  private void openingBatters(Match m, Team first, List<String> selectedFirst, Tournament cup, Fixture fixture) {
+    LinearLayout box = form();
+    String[] names = selectedFirst.toArray(new String[0]);
+    Spinner striker = spinner(box, "Opening striker", names), partner = spinner(box, "Opening partner", names);
+    partner.setSelection(1);
+    dialog("Opening batters ? " + first.name, box, "Start match", () -> {
+      String p = (String) striker.getSelectedItem(), q = (String) partner.getSelectedItem();
+      if (p.equals(q)) throw new IllegalArgumentException("Choose different openers.");
+      m.innings.add(new Innings(m.teamA, m.teamB, p, q, 0));
+      String oldFixtureMatchId = fixture == null ? "" : fixture.matchId;
+      try { if (fixture == null) repo.save(m); else { fixture.matchId = m.id; repo.saveFixtureMatch(m, cup); } }
+      catch (RuntimeException error) { if (fixture != null) fixture.matchId = oldFixtureMatchId; m.innings.clear(); throw error; }
+      open(m);
+    });
   }
 
   private void choosePlayingSquad(Team team, int size, Consumer<List<String>> chosen) {
     LinearLayout box = form();
     box.addView(text("Select exactly " + size + " players for " + team.name + ".", 14, INK, true));
     List<CheckBox> checks = new ArrayList<>();
-    for (int i = 0; i < team.players.size(); i++)
-      checks.add(check(box, team.players.get(i), i < size));
+    int eligible = 0;
+    for (int i = 0; i < team.players.size(); i++) {
+      boolean registered = !registeredId(team.id, team.players.get(i)).isEmpty();
+      CheckBox player = check(box, team.players.get(i) + (registered ? " ? Phone registered" : " ? Registration required"), registered && eligible < size);
+      if (registered) eligible++;
+      player.setEnabled(registered); checks.add(player);
+    }
     dialog("Playing squad · " + team.name, box, "Continue", () -> {
       List<String> selected = new ArrayList<>();
       for (int i = 0; i < checks.size(); i++)
@@ -1688,9 +1730,8 @@ public class MainActivity extends AppCompatActivity {
         () -> {
           if (!writable()) return;
           LinearLayout box = form();
-          EditText name = field(box, "Team name", "", false),
-              names = field(box, "Player names, comma separated", "", false);
-          names.setSingleLine(false);
+          EditText name = field(box, "Team name", "", false);
+          box.addView(text("Save your team, then add players using their registered phone numbers.", 14, MUTED, false));
           dialog(
               "Register team",
               box,
@@ -1701,8 +1742,6 @@ public class MainActivity extends AppCompatActivity {
                   if (t.name.equalsIgnoreCase(val(name)))
                     throw new IllegalArgumentException("That team already exists.");
                 Team t = new Team(val(name));
-                for (String p : val(names).split(","))
-                  if (!p.trim().isEmpty() && !t.players.contains(p.trim())) t.players.add(p.trim());
                 repo.save(t);
                 draw();
               });
@@ -1711,6 +1750,11 @@ public class MainActivity extends AppCompatActivity {
     for (Team t : repo.teams()) {
       LinearLayout c =
           card("SQUAD · " + t.players.size() + " players", t.name, String.join(" · ", t.players));
+      action(c, "Add player by phone", () -> {
+        if (!writable()) return;
+        getPreferences(0).edit().putString("addingPlayerTeam", t.id).apply();
+        startActivityForResult(new Intent(this, PlayerAccountActivity.class).putExtra("pick", true), 88);
+      });
       action(c, "Players & career statistics", () -> players(t));
     }
   }
@@ -1725,19 +1769,8 @@ public class MainActivity extends AppCompatActivity {
             (d, w) -> {
               if (w == t.players.size()) {
                 if (!writable()) return;
-                LinearLayout box = form();
-                EditText name = field(box, "Player name", "", false);
-                dialog(
-                    "Add player",
-                    box,
-                    "Add",
-                    () -> {
-                      if (val(name).isEmpty() || t.players.contains(val(name)))
-                        throw new IllegalArgumentException("Enter a new player name.");
-                      t.players.add(val(name));
-                      repo.save(t);
-                      draw();
-                    });
+                getPreferences(0).edit().putString("addingPlayerTeam", t.id).apply();
+                startActivityForResult(new Intent(this, PlayerAccountActivity.class).putExtra("pick", true), 88);
               } else career(t.players.get(w), t.name);
             })
         .show();
@@ -1746,6 +1779,23 @@ public class MainActivity extends AppCompatActivity {
   private void career(String player, String team) {
     startActivity(new Intent(this, PlayerProfileActivity.class)
         .putExtra("player", player).putExtra("team", team));
+  }
+
+  private void openPolicy(String path) {
+    startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(PlayerAccount.ORIGIN + path)));
+  }
+
+  private void store() {
+    heading("Boundary club shop", "Wear your cricket", "T-shirts, full-sleeve jerseys, caps and bottles.");
+    LinearLayout shop = card("TEAMWEAR & ESSENTIALS", "Made for your match day",
+        "Choose your size, colour and material. Browse cotton, performance and premium options for teamwear, plus caps and bottles.");
+    action(shop, "Open shop & secure Razorpay checkout", () -> startActivity(new Intent(Intent.ACTION_VIEW,
+        Uri.parse("https://boundary-cricket-tournament.vercel.app/shop.html"))));
+    action(shop, "Terms & Conditions", () -> openPolicy("/terms.html"));
+    action(shop, "Privacy Policy", () -> openPolicy("/privacy.html"));
+    action(shop, "My orders", () -> startActivity(new Intent(Intent.ACTION_VIEW,
+        Uri.parse("https://boundary-cricket-tournament.vercel.app/shop.html#orders"))));
+    action(body, "Ground tools", () -> { page = "Tools"; draw(); });
   }
 
   private void tools() {
@@ -1846,9 +1896,8 @@ public class MainActivity extends AppCompatActivity {
         });
     action(
         sync,
-        "Lock official controls",
+        "Switch to spectator",
         () -> {
-          OfficialAccess.lock();
           role = "Spectator";
           getPreferences(0).edit().putString("role", role).apply();
           draw();
@@ -2044,6 +2093,22 @@ public class MainActivity extends AppCompatActivity {
   @Override
   protected void onActivityResult(int req, int result, Intent data) {
     super.onActivityResult(req, result, data);
+    if (req == 88 && result == RESULT_OK && data != null) {
+      String teamId = getPreferences(0).getString("addingPlayerTeam", "");
+      String name = data.getStringExtra("playerName"), accountId = data.getStringExtra("playerId");
+      if (name == null || name.isEmpty() || accountId == null || !accountId.startsWith("user_")) return;
+      for (Team team : repo.teams()) if (team.id.equals(teamId)) {
+        String existing = registeredId(teamId, name);
+        if (!existing.isEmpty() && !existing.equals(accountId)) { message("Name already in team", "A different registered player already uses this name. Ask the player to choose a distinct cricket display name."); return; }
+        if (!team.players.contains(name)) team.players.add(name);
+        repo.save(team);
+        RegisteredPlayer player = new RegisteredPlayer(teamId, name, accountId);
+        repo.save(player.storageId(), "registered-player", player);
+        draw(); break;
+      }
+      getPreferences(0).edit().remove("addingPlayerTeam").apply();
+      return;
+    }
     if (req == 77 && result == RESULT_OK && data != null) {
       if (!writable()) return;
       guard(() -> command(data.getStringExtra("command")));

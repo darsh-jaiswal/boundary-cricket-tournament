@@ -85,8 +85,9 @@ try {
     const target=document.querySelector('#account');target.replaceChildren();
     composer.hidden=!clerk.isSignedIn;
     const signIn=document.querySelector('#sign-in');signIn.replaceChildren();
-    if(clerk.isSignedIn)clerk.mountUserButton(target);
-    else {const button=el('button','Sign in / join');button.onclick=()=>clerk.mountSignIn(signIn);target.append(button);}
+    const phoneGate=document.querySelector('#phone-gate');phoneGate.replaceChildren();
+    if(clerk.isSignedIn){clerk.mountUserButton(target);const verified=clerk.user?.phoneNumbers?.some(phone=>phone.verification?.status==='verified');phoneGate.textContent=verified?`Signed in${clerk.user?.primaryPhoneNumber?.phoneNumber?' as '+clerk.user.primaryPhoneNumber.phoneNumber:''} · phone verified. You can post and reply.`:'Add and verify a phone number from your account menu to post or reply.';composer.hidden=!verified;if(!verified)message('Verify a phone number on your account before posting or replying.',true);}
+    else {composer.hidden=true;const button=el('button','Sign in / register');button.onclick=()=>clerk.mountSignIn(signIn);target.append(button);phoneGate.append(el('p','A registered, verified phone number is required for player accounts.'));}
     render();
   }
   clerk.addListener(account);account();await load();

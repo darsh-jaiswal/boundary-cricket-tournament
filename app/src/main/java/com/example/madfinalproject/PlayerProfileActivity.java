@@ -52,6 +52,20 @@ public final class PlayerProfileActivity extends AppCompatActivity {
       PlayerStats.Player player = PlayerStats.find(name, team, repository.matches());
       label(name, 25, true);
       label(team, 17, false);
+      LinearLayout metrics = new LinearLayout(this);
+      for (String metric : new String[]{player.runs + "\nRUNS", player.wickets + "\nWICKETS", decimal(player.average()) + "\nAVERAGE", decimal(player.strikeRate()) + "\nSTRIKE RATE"}) {
+        TextView tile = new TextView(this); tile.setText(metric); tile.setTextSize(15); tile.setTextColor(0xff147653);
+        tile.setGravity(android.view.Gravity.CENTER); tile.setPadding(dp(4), dp(15), dp(4), dp(15));
+        metrics.addView(tile, new LinearLayout.LayoutParams(0, -2, 1));
+      }
+      body.addView(metrics);
+      if (!player.battingHistory.isEmpty()) {
+        label("Innings form ? runs", 19, true);
+        int count = Math.min(10, player.battingHistory.size()); double[] form = new double[count]; String[] names = new String[count];
+        for (int i = 0; i < count; i++) { form[i] = player.battingHistory.get(player.battingHistory.size() - count + i).runs; names[i] = String.valueOf(i + 1); }
+        body.addView(new StatsVisualView(this, names, form, false), new LinearLayout.LayoutParams(-1, dp(220)));
+        label("Last " + count + " innings in saved match order. A zero is a recorded innings, not missing data.", 12, false);
+      }
       action("Refresh profile", this::load);
       StringBuilder text = new StringBuilder("Boundary player profile\n").append(name).append(" · ").append(team);
       section(text, "Recorded participation", player.matches() + " matches with recorded batting, bowling or credited fielding.\n"
@@ -67,6 +81,9 @@ public final class PlayerProfileActivity extends AppCompatActivity {
           + " · Best " + (player.bowlingInnings == 0 ? "—" : player.bestWickets + "/" + player.bestConceded)
           + "\n" + player.fiveFors + " five-wicket innings\n" + player.wides + " wide runs · " + player.noBalls + " no-ball penalty runs\n"
           + "Economy uses each match's own balls per over, including mixed formats. Bowler wickets exclude run-outs and obstruction.");
+      section(text, "Scoring & pressure", "Boundary runs " + decimal(player.boundaryPercent()) + "% of batter runs\n"
+          + "Batting dots " + player.battingDots + " (" + decimal(player.battingDotPercent()) + "%)\n"
+          + "Bowling dots " + player.bowlingDots + " (" + decimal(player.bowlingDotPercent()) + "% of legal balls; no bowler runs conceded)");
       section(text, "Fielding", player.catches + " catches · " + player.runOuts + " run-out involvements · "
           + player.stumpings + " stumpings\nOnly named fielders on effective dismissals receive credit; missing attribution remains uncredited.");
       List<String> badges = player.badges();

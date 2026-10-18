@@ -2,7 +2,6 @@
 <full-backup-content>
     <include domain="database" path="boundary.db" />
     <include domain="sharedpref" path="MainActivity.xml" />
-    <include domain="sharedpref" path="official-access.xml" />
     <include domain="sharedpref" path="publication.xml" />
     <include domain="file" path="scorebooks/" />
 </full-backup-content>

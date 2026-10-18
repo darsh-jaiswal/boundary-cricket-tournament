@@ -34,6 +34,9 @@ export default async function handler(req, res) {
     });
     const auth = authState.toAuth();
     if (!auth?.userId) return res.status(401).json({error:'Sign in to post or reply'});
+    const user = await clerk.users.getUser(auth.userId);
+    if (!user.phoneNumbers?.some(phone => phone.verification?.status === 'verified'))
+      return res.status(403).json({error:'Verify a phone number on your account before joining the player community'});
     let body;
     try { body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body; }
     catch { return res.status(400).json({error:'Invalid request'}); }
@@ -43,7 +46,6 @@ export default async function handler(req, res) {
       const rows = await sql`DELETE FROM boundary_community_posts WHERE id=${body.id} AND owner_id=${auth.userId} RETURNING id`;
       return res.status(rows.length ? 200 : 403).json(rows.length ? {removed:true} : {error:'Only the author can remove a post'});
     }
-    const user = await clerk.users.getUser(auth.userId);
     const author = (user.fullName || user.username || 'Boundary member').slice(0,100);
     if (body.postId) {
       if (!uuid(body.postId) || !text(body.body,1000)) return res.status(400).json({error:'Enter a reply up to 1000 characters'});

@@ -33,6 +33,8 @@ public final class PlayerStats {
     public final String name, team;
     public long runs, balls, fours, sixes, wickets, conceded, ballsBowled, wides, noBalls;
     public int innings, dismissed, notOuts, retiredInnings, highest, fifties, hundreds;
+    public long battingDots, bowlingDots;
+    public final long[] zones = new long[8];
     public int bowlingInnings, bestWickets, bestConceded, fiveFors, catches, runOuts, stumpings;
     public boolean highestNotOut;
     public double oversBowled;
@@ -45,6 +47,11 @@ public final class PlayerStats {
     public double average() { return dismissed == 0 ? Double.NaN : runs / (double) dismissed; }
     public double strikeRate() { return balls == 0 ? Double.NaN : runs * 100.0 / balls; }
     public double economy() { return oversBowled == 0 ? Double.NaN : conceded / oversBowled; }
+    public double bowlingAverage() { return wickets == 0 ? Double.NaN : conceded / (double) wickets; }
+    public double bowlingStrikeRate() { return wickets == 0 ? Double.NaN : ballsBowled / (double) wickets; }
+    public double battingDotPercent() { return balls == 0 ? Double.NaN : battingDots * 100.0 / balls; }
+    public double bowlingDotPercent() { return ballsBowled == 0 ? Double.NaN : bowlingDots * 100.0 / ballsBowled; }
+    public double boundaryPercent() { return runs == 0 ? Double.NaN : (4 * fours + 6 * sixes) * 100.0 / runs; }
     public int fieldingInvolvements() { return catches + runOuts + stumpings; }
     public long mvpPoints() { return runs + 20L * wickets + 8L * fieldingInvolvements(); }
 
@@ -88,6 +95,14 @@ public final class PlayerStats {
           batters.add(point.strikerBefore);
           batters.add(point.nonStrikerBefore);
           if (point.extra != Extra.PENALTY) bowlers.add(point.bowler);
+          if (point.extra != Extra.WIDE && point.extra != Extra.PENALTY && point.batRuns == 0) {
+            Player striker = player(players, point.strikerBefore, innings.battingTeam);
+            if (striker != null) striker.battingDots++;
+          }
+          if (point.legal > point.legalBefore && point.bowlerRuns == 0) {
+            Player bowler = player(players, point.bowler, innings.bowlingTeam);
+            if (bowler != null) bowler.bowlingDots++;
+          }
           if (point.wickets <= point.wicketsBefore) continue;
           if (point.dismissal != Dismissal.CAUGHT && point.dismissal != Dismissal.RUN_OUT
               && point.dismissal != Dismissal.STUMPED) continue;
@@ -110,6 +125,8 @@ public final class PlayerStats {
           player.balls += batting.balls;
           player.fours += batting.fours;
           player.sixes += batting.sixes;
+          if (batting.zones != null) for (int z = 0; z < Math.min(8, batting.zones.length); z++)
+            player.zones[z] += batting.zones[z];
           if (batting.out) {
             player.dismissed++;
             player.dismissals.put(batting.dismissal, player.dismissals.getOrDefault(batting.dismissal, 0) + 1);

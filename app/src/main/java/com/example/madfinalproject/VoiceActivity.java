@@ -69,7 +69,7 @@ public class VoiceActivity extends AppCompatActivity implements RecognitionListe
     box.addView(wake);
     TextView note = new TextView(this);
     note.setText(
-        "Push and hold to score. Short commands use the official PIN and confirmation."
+        "Push and hold to score. Review and confirm every command before it changes the score."
             + " For recordings of at least three seconds, an enrolled voice profile adds a local"
             + " speaker check. Every command requires confirmation.\n\n"
             + "Vosk transcribes speech offline on this phone; no recording is uploaded.");

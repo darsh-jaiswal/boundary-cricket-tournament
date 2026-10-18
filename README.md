@@ -4,11 +4,13 @@ Native Android application written in Java for local, college, turf and club cri
 
 - Spectator site: https://boundary-cricket-tournament.vercel.app/
 - Source: https://github.com/darsh-jaiswal/boundary-cricket-tournament
-- [Download the signed Android APK](https://boundary-cricket-tournament.vercel.app/downloads/Boundary-Android-arm64.apk?v=1.0.4) for a modern physical Android phone.
+- [Download the signed Android APK](https://boundary-cricket-tournament.vercel.app/downloads/Boundary-Android-arm64.apk?v=1.0.5) for a modern physical Android phone.
 - Emulator: `app/build/outputs/apk/debug/app-x86_64-debug.apk`.
 - Universal build: `app/build/outputs/apk/debug/app-universal-debug.apk`.
 
 ## First use
+
+Version 1.0.5 removes the PIN flow, adds registered-phone squad eligibility, comparison charts, merchandise catalog with Razorpay checkout infrastructure, and Terms and Privacy pages. The shop stays in preview until inventory and fulfilment are configured. Clerk phone/SMS must be enabled to complete player registration. See [1.0.5 notes](docs/RELEASE_1.0.5.md).
 
 Version 1.0.4 adds reversible innings endings, wicket and extras corrections, bowler changes, five match-format presets, and repeatable Super Overs after a tie. These rules apply offline and flow into scorecards, tournament results, and public match pages. Version 1.0.3 added toss, playing squad and opener setup, official match controls, and push-to-talk voice scoring. Version 1.0.2 added player profiles and local rankings, match graphs and awards,
 NRR scenarios, squad availability, a dark navigation shell, and RTMP camera
@@ -17,26 +19,26 @@ is at `/overlay.html?match=<id>`. See [release notes](docs/RELEASE_1.0.4.md) for
 verification limits and remaining features. Shop, merch, ads and paywalls are
 excluded; complete CricHeroes parity has not been reached.
 
-1. Open **Teams** and register two teams, entering player names separated by commas.
-2. Press **Create a match** on Home. The first editing action asks you to create a six-to-twelve digit official PIN. Repeat the action after unlocking.
+1. Open **My phone account**, register a phone-verified player and link the Android app. In **Teams**, save two teams and use **Add player by phone** for their registered squads.
+2. Press **Create a match** on Home. There is no PIN. New playing squads require an online registration check; scoring continues offline afterward.
 3. Select both teams, ground, scorer, umpire, toss winner and bat/bowl choice. Set the match rules, choose each playing squad, then select the opening batters.
 4. Select a bowler. Tap run buttons to save immediately. Hold a run button to add scoring zones, running runs and overthrows. Extras and wickets have detailed forms.
 5. Use **History** to correct any recorded event, including earlier innings. Later deliveries remain in the journal and are replayed. Events after a newly calculated innings finish are retained but excluded until the innings reopens.
 6. Save your private match recovery code from Tools if you need to recover or transfer scoring. Spectators only receive the public scoreboard. At innings completion start the chase. The chase target follows first-innings corrections; explicit interruption targets remain official events. Tied matches can continue through repeat Super Overs. Rules lock after the first ball so saved deliveries cannot be reinterpreted.
-7. In the Scorer or Umpire match workspace, use **Voice scoring · push to talk**. Hold the microphone, speak and release. Confirm the recognized command before it changes the score. **Tools** also contains optional voice enrollment, PA audio, field radar, scanner, stump cam, publication status and the control lock.
+7. In the Scorer or Umpire match workspace, use **Voice scoring · push to talk**. Hold the microphone, speak and release. Confirm the recognized command before it changes the score. **Tools** also contains optional voice enrollment, PA audio, field radar, scanner, stump cam, publication status and workspace switching.
 
 ## Features
 
 | Area | Current behavior |
 | --- | --- |
-| Roles | Seven device workspaces; spectators/players browse read-only. Officials unlock device editing with a salted, iterated PIN hash. Public API reads need no login. Each published match has a device-owned write key. |
+| Roles | Seven device workspaces; spectators/players browse read-only. Device editing follows the selected workspace without a PIN. New squads require registered, verified-phone accounts. Public API reads need no login. Each published match has a device-owned write key. |
 | Tournaments | Team registration, league round robin, two groups with semifinals/final, knockout brackets with byes and automatic round advancement. Ties require a decided replay before knockout advancement. Points and NRR derive from completed scorecards. |
 | Rules | 4/5/6/8 balls per over, squad size, overs, wide/no-ball penalties, last-batter rules, bowling limit, powerplay length and final-over extra legality. |
 | Scoring | Bat runs, wides, no-balls, byes, leg byes, penalty runs, completed runs, overthrows, dismissal types, fielder attribution, incoming batter, retirement and return, batter-end changes, bowling changes, scorer notes and manual innings end. |
 | Corrections | Replayed immutable delivery identities, retained reversed events, strike/end-over restoration, bowler figures, fall of wickets, incoming batter restoration, free-hit memory, run-out crossing, retirement reversal and innings reopening. Major reversals have a three-second cancellation window and spoken warning. |
 | Offline | Transactional SQLite records and persistent publication outbox. Immediate foreground publication plus Android JobScheduler retries when connectivity returns and restores scheduled work after reboot. |
 | Spectators | Real database snapshots, public match directory, score/target/win estimate, commentary and result. Browser refresh every three seconds; publishing depends on Android scheduling and network conditions. |
-| Voice | Push-to-talk scoring via the bundled open source Vosk Indian English model. Optional three-sample speaker enrollment checks recordings of at least three seconds. Short commands still require the official PIN and explicit confirmation. |
+| Voice | Push-to-talk scoring via the bundled open source Vosk Indian English model. Optional three-sample speaker enrollment checks recordings of at least three seconds. Every command requires explicit confirmation. |
 | PA | Android text-to-speech routes through the selected system audio output; boundaries, wickets, incoming players and over changes are announced. |
 | Insights | Per-ball statistical win estimate, deterministic commentary/report, history-based scoring zones, tactical prompt and nine draggable fielders with powerplay-aware initial positions. |
 | Scanner | Bundled on-device ML Kit OCR, editable text, row guesses, reviewed scorecard import and career-stat integration. |

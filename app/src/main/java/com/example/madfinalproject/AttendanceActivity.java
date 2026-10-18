@@ -24,7 +24,7 @@ import java.util.Date;
 import java.util.LinkedHashSet;
 import java.util.List;
 
-/** Local match-squad availability notes protected by the scoring device's official PIN. */
+/** Local match-squad availability notes for the selected workspace. */
 public final class AttendanceActivity extends AppCompatActivity {
   public static final String EXTRA_MATCH_ID = "match", EXTRA_ROLE = "role";
   private static final String[] LABELS = {"Not confirmed", "Available", "Unavailable"};
@@ -56,9 +56,8 @@ public final class AttendanceActivity extends AppCompatActivity {
         if (item.matchId.equals(match.id)) { attendance = item; break; }
       label(match.name, 20, true);
       boolean editable = editableRole();
-      label(editable ? "Choose a status to save immediately. The official PIN is required; after unlocking, repeat the change."
-          : "Read-only workspace. An organizer, manager, captain, scorer or umpire with the device PIN can change these notes.", 14, false);
-      if (editable) action("Unlock official controls", () -> OfficialAccess.require(this));
+      label(editable ? "Choose a status to save immediately."
+          : "Read-only workspace. An organizer, manager, captain, scorer or umpire can change these notes.", 14, false);
       playersA = squad(match.rosterA); playersB = squad(match.rosterB);
       summary = label("", 14, false);
       renderTeam(match.teamA, playersA, editable);
@@ -94,7 +93,7 @@ public final class AttendanceActivity extends AppCompatActivity {
         @Override public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
           Attendance.Status before = attendance.status(team, name), after = Attendance.Status.values()[position];
           if (before == after) return;
-          if (!editableRole() || !OfficialAccess.require(AttendanceActivity.this)) {
+          if (!editableRole()) {
             picker.setSelection(before.ordinal()); return;
           }
           long previousUpdated = attendance.updated;

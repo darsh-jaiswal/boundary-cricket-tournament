@@ -3,14 +3,12 @@
     <cloud-backup disableIfNoEncryptionCapabilities="true">
         <include domain="database" path="boundary.db" />
         <include domain="sharedpref" path="MainActivity.xml" />
-        <include domain="sharedpref" path="official-access.xml" />
         <include domain="sharedpref" path="publication.xml" />
         <include domain="file" path="scorebooks/" />
     </cloud-backup>
     <device-transfer>
         <include domain="database" path="boundary.db" />
         <include domain="sharedpref" path="MainActivity.xml" />
-        <include domain="sharedpref" path="official-access.xml" />
         <include domain="sharedpref" path="publication.xml" />
         <include domain="file" path="scorebooks/" />
     </device-transfer>

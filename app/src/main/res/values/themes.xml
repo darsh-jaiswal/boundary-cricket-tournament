@@ -10,15 +10,15 @@
         <item name="android:windowBackground">#F3F6EF</item>
     </style>
     <style name="Theme.MADFinalProject" parent="Base.Theme.MADFinalProject" />
-    <style name="Theme.Boundary.Reference" parent="Theme.Material3.Dark.NoActionBar">
-        <item name="colorPrimary">#159A96</item>
+    <style name="Theme.Boundary.Reference" parent="Theme.Material3.Light.NoActionBar">
+        <item name="colorPrimary">#147653</item>
         <item name="colorOnPrimary">#FFFFFF</item>
-        <item name="colorSecondary">#159A96</item>
+        <item name="colorSecondary">#147653</item>
         <item name="android:fontFamily">sans</item>
-        <item name="android:windowLightStatusBar">false</item>
-        <item name="android:windowLightNavigationBar">false</item>
-        <item name="android:statusBarColor">#1E1E1E</item>
-        <item name="android:navigationBarColor">#1E1E1E</item>
-        <item name="android:windowBackground">#090909</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:windowLightNavigationBar">true</item>
+        <item name="android:statusBarColor">#F3F6EF</item>
+        <item name="android:navigationBarColor">#F3F6EF</item>
+        <item name="android:windowBackground">#F3F6EF</item>
     </style>
 </resources>

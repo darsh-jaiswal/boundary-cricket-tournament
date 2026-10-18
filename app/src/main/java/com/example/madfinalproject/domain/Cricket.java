@@ -197,6 +197,8 @@ public final class Cricket {
     public final String strikerBefore, nonStrikerBefore, bowler, fielder, label;
     public final Dismissal dismissal;
     public final Extra extra;
+    public final int batRuns, bowlerRuns, zone;
+    public final boolean boundary;
 
     private Progress(State state, int legalBefore, int runsBefore, int wicketsBefore,
         String strikerBefore, String nonStrikerBefore, String bowler, Event event) {
@@ -213,6 +215,11 @@ public final class Cricket {
       label = event.label();
       dismissal = event.dismissal;
       extra = event.extra;
+      batRuns = event.bat + (extra == Extra.NONE || extra == Extra.NO_BALL ? event.overthrow : 0);
+      bowlerRuns = extra == Extra.BYE || extra == Extra.LEG_BYE || extra == Extra.PENALTY
+          ? 0 : runs - runsBefore;
+      zone = event.zone;
+      boundary = event.boundary;
     }
   }
 
@@ -357,7 +364,7 @@ public final class Cricket {
                 + e.extras
                 + automatic
                 + (e.extra == Extra.NO_BALL ? 0 : e.overthrow));
-      if (!wide && !pen && !nb) {
+      if (!wide && !pen) {
         bt.balls++;
       }
       bt.runs += e.bat + (e.extra == Extra.NONE || nb ? e.overthrow : 0);

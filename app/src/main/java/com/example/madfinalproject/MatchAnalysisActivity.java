@@ -11,6 +11,7 @@ import android.widget.TextView;
 import androidx.appcompat.app.AppCompatActivity;
 import com.example.madfinalproject.data.Repository;
 import com.example.madfinalproject.domain.Cricket;
+import com.example.madfinalproject.domain.MatchInsights;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
@@ -22,6 +23,7 @@ public final class MatchAnalysisActivity extends AppCompatActivity {
   private Repository repository;
   private LinearLayout body;
   private String report;
+  private ComparisonChartView.Mode chartMode = ComparisonChartView.Mode.MANHATTAN;
 
   @Override
   public void onCreate(Bundle saved) {
@@ -67,6 +69,20 @@ public final class MatchAnalysisActivity extends AppCompatActivity {
       }
       StringBuilder text = new StringBuilder("Boundary match analysis\n").append(title);
       int active = match.activeIndex();
+      label("Match progress", 21, true);
+      LinearLayout modes = new LinearLayout(this);
+      for (ComparisonChartView.Mode mode : ComparisonChartView.Mode.values()) {
+        Button tab = new Button(this); tab.setText(mode.name().replace('_', ' ')); tab.setTextSize(10); tab.setAllCaps(false);
+        tab.setTextColor(chartMode == mode ? 0xffffffff : 0xff147653);
+        tab.setBackgroundTintList(ColorStateList.valueOf(chartMode == mode ? 0xff147653 : 0xffe1e9df));
+        tab.setOnClickListener(v -> { chartMode = mode; load(); });
+        modes.addView(tab, new LinearLayout.LayoutParams(0, -2, 1));
+      }
+      body.addView(modes);
+      body.addView(new ComparisonChartView(this, match.progressAt(0), active >= 1 ? match.progressAt(1) : java.util.Collections.emptyList(),
+          match.innings.get(0).battingTeam, active >= 1 ? match.innings.get(1).battingTeam : "Chase not started",
+          match.rules.ballsPerOver, chartMode), new LinearLayout.LayoutParams(-1, dp(285)));
+
       for (int index = 0; index <= active && index < match.innings.size(); index++) {
         Cricket.Innings innings = match.innings.get(index);
         Cricket.State state = match.stateAt(index);
@@ -83,6 +99,33 @@ public final class MatchAnalysisActivity extends AppCompatActivity {
           label("No effective deliveries in this innings yet.", 15, false);
           text.append("\nNo effective deliveries yet.");
           continue;
+        }
+        label("Phases of play", 19, true);
+        for (MatchInsights.Phase phase : MatchInsights.phases(points, match.rules.ballsPerOver,
+            match.rules.overs, match.rules.powerplay)) {
+          label("Overs " + phase.firstOver + "?" + phase.lastOver + "    " + phase.runs + "/" + phase.wickets
+              + "    RR " + decimal(phase.rate(match.rules.ballsPerOver)) + "\n" + phase.dots
+              + " team dot balls ? " + phase.boundaryRuns + " boundary runs", 14, false);
+        }
+        label("Types of runs ? balls faced", 19, true);
+        int[] distribution = MatchInsights.distribution(points);
+        double[] bars = new double[distribution.length]; for (int i = 0; i < bars.length; i++) bars[i] = distribution[i];
+        body.addView(new StatsVisualView(this, new String[]{"Dots", "1s", "2s", "3s", "4s", "6s", "Other"}, bars, false),
+            new LinearLayout.LayoutParams(-1, dp(210)));
+        label("Face off ? batter vs bowler", 19, true);
+        for (MatchInsights.FaceOff row : MatchInsights.faceOffs(points))
+          label(row.batter + " vs " + row.bowler + "\n" + row.runs + " runs ? " + row.balls + " faced ? "
+              + row.dots + " dots ? " + row.fours + "/" + row.sixes + " boundaries ? SR " + decimal(row.strikeRate())
+              + "\nBowler: " + row.conceded + " conceded ? " + row.wickets + " wickets ? Econ "
+              + decimal(row.economy(match.rules.ballsPerOver)), 14, false);
+        long[] zones = new long[8]; long tracked = 0;
+        for (Cricket.Progress p : points) if (p.zone >= 0 && p.zone < 8 && p.batRuns > 0) { zones[p.zone] += p.batRuns; tracked += p.batRuns; }
+        label("Wagon wheel ? recorded sectors", 19, true);
+        if (tracked == 0) label("No scoring zones recorded. Hold a scoring button to record a shot sector.", 14, false);
+        else { double[] z = new double[8]; for (int i = 0; i < 8; i++) z[i] = zones[i];
+          body.addView(new StatsVisualView(this, new String[]{"0", "1", "2", "3", "4", "5", "6", "7"}, z, true),
+              new LinearLayout.LayoutParams(-1, dp(280)));
+          label(tracked + " batter runs have recorded sectors. Untracked runs are excluded; sectors show totals, not exact shot paths.", 12, false);
         }
         label("Manhattan · runs per over", 17, true);
         body.addView(new MatchChartView(this, points, match.rules.ballsPerOver, MatchChartView.Mode.MANHATTAN),
@@ -130,6 +173,8 @@ public final class MatchAnalysisActivity extends AppCompatActivity {
     }
     return table.toString();
   }
+
+  private String decimal(double value) { return Double.isFinite(value) ? String.format(Locale.US, "%.2f", value) : "?"; }
 
   private TextView label(String text, int size, boolean bold) {
     TextView view = new TextView(this);
