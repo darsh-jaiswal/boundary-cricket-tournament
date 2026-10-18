@@ -1,3 +1,4 @@
+import { guardRequest, rateLimit, securityError } from '../server/security.js';
 import { neon } from '@neondatabase/serverless';
 import { createClerkClient } from '@clerk/backend';
 import { randomUUID } from 'node:crypto';
@@ -15,6 +16,7 @@ export default async function handler(req, res) {
   clerk ??= createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY,
     publishableKey: process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY });
   try {
+    await guardRequest(req,res,'community',8000);
     if (req.method === 'GET') {
       if (req.query.config === '1') return res.status(200).json({ publishableKey: process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY });
       if (req.query.post) {
@@ -34,6 +36,7 @@ export default async function handler(req, res) {
     });
     const auth = authState.toAuth();
     if (!auth?.userId) return res.status(401).json({error:'Sign in to post or reply'});
+    await rateLimit(res,'community:account-write',auth.userId,20);
     const user = await clerk.users.getUser(auth.userId);
     if (!user.phoneNumbers?.some(phone => phone.verification?.status === 'verified'))
       return res.status(403).json({error:'Verify a phone number on your account before joining the player community'});
@@ -70,7 +73,6 @@ export default async function handler(req, res) {
     const rows = result[1];
     return res.status(rows.length ? 201 : 429).json(rows.length ? {created:true} : {error:'Posting limit reached. Please wait a minute.'});
   } catch (error) {
-    console.error('Community request failed', error?.status || error?.code || 'service_error');
-    return res.status(503).json({error:'Community service unavailable. Please retry.'});
+    return securityError(res,error,'Community service unavailable. Please retry.');
   }
 }

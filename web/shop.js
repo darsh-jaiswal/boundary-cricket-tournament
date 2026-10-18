@@ -24,7 +24,8 @@ const artwork = {
 function art(category) {
   const node=el('div',undefined,'product-art');
   // These paths are trusted local artwork; catalog text is always inserted with textContent.
-  node.innerHTML=`<svg viewBox="0 0 240 250" role="img" aria-label="Boundary ${category} design">${artwork[category]||artwork.tshirt}<text x="120" y="133" text-anchor="middle" fill="#d0ed8c" font-family="sans-serif" font-weight="800" font-size="24">B.</text></svg>`;
+  const safeCategory=Object.hasOwn(artwork,category)?category:'tshirt';
+  node.innerHTML=`<svg viewBox="0 0 240 250" role="img" aria-label="Boundary ${safeCategory} design">${artwork[safeCategory]}<text x="120" y="133" text-anchor="middle" fill="#d0ed8c" font-family="sans-serif" font-weight="800" font-size="24">B.</text></svg>`;
   node.append(el('span','BOUNDARY ORIGINAL'));return node;
 }
 function renderProducts() {

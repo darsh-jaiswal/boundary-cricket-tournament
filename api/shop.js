@@ -1,3 +1,4 @@
+import { guardRequest, rateLimit } from '../server/security.js';
 import { randomUUID } from 'node:crypto';
 import { db, verifiedMember, bodyOf, uuid, HttpError } from '../server/auth.js';
 import { configured, keyId, razorpay, validCheckoutSignature } from '../server/razorpay.js';
@@ -16,6 +17,7 @@ const publicOrder = order => ({ id: order.id, status: order.status, amountPaise:
 export default async function handler(req, res) {
   res.setHeader('Cache-Control', 'no-store');
   try {
+    await guardRequest(req,res,'shop');
     const sql = db();
     if (req.method === 'GET' && !req.query.orders && !req.query.order) {
       const products = await sql`SELECT p.id,p.name,p.category,p.description,
@@ -29,6 +31,7 @@ export default async function handler(req, res) {
     }
     if (!['GET','POST'].includes(req.method)) { res.setHeader('Allow','GET, POST'); throw new HttpError(405,'Method not allowed'); }
     const user = await verifiedMember(req);
+    await rateLimit(res,req.method==='GET'?'shop:account-read':'shop:account-write',user.id,req.method==='GET'?60:15);
     if (req.method === 'GET') {
       if (req.query.order) {
         if (!uuid(req.query.order)) throw new HttpError(400,'Invalid order');

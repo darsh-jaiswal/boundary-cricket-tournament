@@ -1,3 +1,4 @@
+import { guardRequest, rateLimit, clientIp } from '../server/security.js';
 import { createHash, createHmac, randomBytes, randomUUID } from 'node:crypto';
 import { db, clerk, verifiedMember, bodyOf, uuid, HttpError } from '../server/auth.js';
 
@@ -29,6 +30,7 @@ async function registeredUser(userId) {
 export default async function handler(req,res) {
   res.setHeader('Cache-Control','no-store');
   try {
+    await guardRequest(req,res,'players',6000);
     const sql=db();
     if(req.method==='GET'&&req.query.config==='1')return res.status(200).json({publishableKey:process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY});
     if(req.method==='GET') {
@@ -40,7 +42,8 @@ export default async function handler(req,res) {
     if(req.method!=='POST'){res.setHeader('Allow','GET, POST');throw new HttpError(405,'Method not allowed');}
     const body=bodyOf(req,6000);
     if(body.action==='begin') {
-      const ip=hash(String(req.headers['x-forwarded-for']||req.socket?.remoteAddress||'unknown').split(',')[0]);
+      await rateLimit(res,'players:begin','ip:'+clientIp(req),10,600);
+      const ip=hash(clientIp(req));
       const token=randomBytes(32).toString('hex'),id=randomUUID();
       const rows=await sql`INSERT INTO boundary_device_accounts(id,token_hash,ip_hash)
         SELECT ${id},${hash(token)},${ip} WHERE (SELECT count(*) FROM boundary_device_accounts WHERE ip_hash=${ip} AND created>now()-interval '10 minutes')<15 RETURNING id`;
@@ -49,6 +52,7 @@ export default async function handler(req,res) {
     }
     if(body.action==='lookup'||body.action==='validate') {
       const link=await device(req);if(!link.owner_id)throw new HttpError(401,'Finish linking your phone account');
+      await rateLimit(res,'players:lookup','account:'+link.owner_id,20);
       await registeredUser(link.owner_id);
       const limits=await sql`UPDATE boundary_device_accounts SET
         lookup_count=CASE WHEN lookup_window<now()-interval '1 minute' THEN 1 ELSE lookup_count+1 END,
@@ -69,6 +73,7 @@ export default async function handler(req,res) {
     }
     if(body.action==='revoke') {const link=await device(req);await sql`UPDATE boundary_device_accounts SET expires=now() WHERE id=${link.id}`;return res.status(200).json({signedOut:true});}
     const user=await verifiedMember(req);
+    await rateLimit(res,'players:account-write',user.id,15);
     if(body.action==='register') {
       if(body.termsVersion!=='2026-10-18')throw new HttpError(400,'Please accept the current Terms & Conditions before registering');
       if(typeof body.name!=='string'||body.name.trim().length<2||body.name.trim().length>100)
