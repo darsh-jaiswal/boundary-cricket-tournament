@@ -72,6 +72,7 @@ dependencies {
     implementation("net.java.dev.jna:jna:5.13.0@aar")
     implementation(files("libs/sherpa-onnx-1.13.8.aar"))
     implementation("com.google.mlkit:text-recognition:16.0.1")
+    implementation("com.google.zxing:core:3.5.3")
     implementation("androidx.camera:camera-camera2:1.4.2")
     implementation("androidx.camera:camera-lifecycle:1.4.2")
     implementation("androidx.camera:camera-video:1.4.2")

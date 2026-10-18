@@ -198,7 +198,7 @@ public final class Cricket {
     public final Dismissal dismissal;
     public final Extra extra;
     public final int batRuns, bowlerRuns, zone;
-    public final boolean boundary;
+    public final boolean boundary, nonStrikerOut;
 
     private Progress(State state, int legalBefore, int runsBefore, int wicketsBefore,
         String strikerBefore, String nonStrikerBefore, String bowler, Event event) {
@@ -220,6 +220,13 @@ public final class Cricket {
           ? 0 : runs - runsBefore;
       zone = event.zone;
       boundary = event.boundary;
+      nonStrikerOut = event.nonStrikerOut;
+    }
+
+    /** Batter dismissed on this delivery, or "" when no wicket fell. */
+    public String dismissed() {
+      if (wickets <= wicketsBefore) return "";
+      return nonStrikerOut ? nonStrikerBefore : strikerBefore;
     }
   }
 
@@ -451,6 +458,8 @@ public final class Cricket {
         umpire = "",
         venue = "",
         tournament = "";
+    // Added in 1.0.6. Journals saved earlier deserialize these as null, read them through the accessors.
+    public String ballType = "", matchType = "", pitchType = "";
     public Rules rules = new Rules();
     public ArrayList<Innings> innings = new ArrayList<>();
     public ArrayList<String> rosterA = new ArrayList<>(), rosterB = new ArrayList<>();
@@ -461,6 +470,24 @@ public final class Cricket {
       teamA = a;
       teamB = b;
       name = a + " v " + b;
+    }
+
+    public String ballType() { return ballType == null ? "" : ballType; }
+    public String matchType() { return matchType == null ? "" : matchType; }
+    public String pitchType() { return pitchType == null ? "" : pitchType; }
+
+    /** When the first event was recorded, falling back to the last save. */
+    public long played() {
+      long first = Long.MAX_VALUE;
+      for (Innings in : innings) for (Event e : in.events) first = Math.min(first, e.created);
+      return first == Long.MAX_VALUE ? updated : first;
+    }
+
+    public List<String> roster(String team) {
+      if (team == null) return Collections.emptyList();
+      if (team.equals(teamA)) return rosterA == null ? Collections.emptyList() : rosterA;
+      if (team.equals(teamB)) return rosterB == null ? Collections.emptyList() : rosterB;
+      return Collections.emptyList();
     }
 
     public Innings current() {

@@ -21,4 +21,16 @@
         <item name="android:navigationBarColor">#F3F6EF</item>
         <item name="android:windowBackground">#F3F6EF</item>
     </style>
+    <!-- Follows Appearance (light / dark / device). Only screens drawn from Ui.palette use it. -->
+    <style name="Theme.Boundary.Main" parent="Theme.Material3.Light.NoActionBar">
+        <item name="colorPrimary">#147653</item>
+        <item name="colorOnPrimary">#FFFFFF</item>
+        <item name="colorSecondary">#147653</item>
+        <item name="android:fontFamily">sans</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:windowLightNavigationBar">true</item>
+        <item name="android:statusBarColor">#F3F6EF</item>
+        <item name="android:navigationBarColor">#FFFFFF</item>
+        <item name="android:windowBackground">#F3F6EF</item>
+    </style>
 </resources>

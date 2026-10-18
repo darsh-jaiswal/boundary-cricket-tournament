@@ -54,7 +54,10 @@ public final class PlayerAccountActivity extends AppCompatActivity {
   private void check() { call(() -> {
     JSONObject result = PlayerAccount.request(this, null);
     boolean linked = "linked".equals(result.optString("status"));
-    getSharedPreferences("boundary-account", 0).edit().putBoolean("linked", linked).apply();
+    android.content.SharedPreferences.Editor account = getSharedPreferences("boundary-account", 0).edit().putBoolean("linked", linked);
+    // Kept so the profile can find this person's phone-registered squad places across teams.
+    if (linked) account.putString("id", result.optString("id")).putString("name", result.optString("name"));
+    account.apply();
     runOnUiThread(() -> status.setText(linked ? "Linked as " + result.optString("name") + ". You can add registered players."
         : "Still waiting. Register your player account and tap Link my Boundary app in the browser."));
   }); }
