@@ -55,4 +55,6 @@ The payment button needs Google login, available inventory and an open store.
 Live keys alone do not open the store: the owner must configure sellable variant stock/prices,
 `MERCH_SALES_ENABLED=true`, `MERCH_SHIPPING_PAISE`, `MERCH_DISPATCH_DAYS` and `MERCH_SUPPORT_EMAIL`.
 Use `scripts/configure-merchandise.mjs` with an owner-supplied inventory file.
-No inventory, shipping promises or charges are invented by this change.
+The owner-confirmed live launch is recorded in [store launch configuration](../database/inventory/README.md).
+Production uses the confirmed stock, ₹50 shipping, 3–5 day dispatch and the owner's support email.
+The disabled seeds remain development examples. Stock files are never reapplied by deployment.

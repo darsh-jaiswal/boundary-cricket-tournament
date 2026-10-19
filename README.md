@@ -12,7 +12,10 @@ Native Android application written in Java for local, college, turf and club cri
 
 Version 1.0.8 adds searchable player usernames, WhatsApp registration invitations and automatic device-link refresh. It fixes the profile drawer QR layout and simplifies workspace choices. See [1.0.8 notes](docs/RELEASE_1.0.8.md) and the [player, invitation and workspace flows](docs/PLAYER_AND_WORKSPACE_FLOWS.md).
 
-Version 1.0.5 removes the PIN flow, adds Google-registered squad eligibility, comparison charts, merchandise catalog with Razorpay checkout infrastructure, and Terms and Privacy pages. The shop stays in preview until inventory and fulfilment are configured. Google login is enabled in Clerk; each player must complete Boundary registration before joining a new squad. See [1.0.5 notes](docs/RELEASE_1.0.5.md).
+The owner-confirmed shop launch uses live Razorpay payments, ₹50 shipping and 3–5 day dispatch.
+See [launch stock and store settings](database/inventory/README.md). Customers must sign in with Google to check out.
+
+Version 1.0.5 introduced Google-registered squad eligibility, comparison charts, the merchandise catalog and Razorpay checkout infrastructure, and Terms and Privacy pages. It originally kept the shop in preview; the owner-confirmed launch settings above supersede that status. Google login is enabled in Clerk; each player must complete Boundary registration before joining a new squad. See [1.0.5 notes](docs/RELEASE_1.0.5.md).
 
 Version 1.0.4 adds reversible innings endings, wicket and extras corrections, bowler changes, five match-format presets, and repeatable Super Overs after a tie. These rules apply offline and flow into scorecards, tournament results, and public match pages. Version 1.0.3 added toss, playing squad and opener setup, official match controls, and push-to-talk voice scoring. Version 1.0.2 added player profiles and local rankings, match graphs and awards,
 NRR scenarios, squad availability, a dark navigation shell, and RTMP camera
