@@ -84,51 +84,41 @@ public class StorefrontTest {
   @Test public void shelvesShowThreeCategoriesInOrderAndHideBottles() {
     List<Product> live = Arrays.asList(
         product("bottle", "bottle", variant("b1", "Steel", "750 ml", 29900, true)),
-        product("cap", "cap", variant("c1", "Cotton twill", "Adjustable", 39900, false)),
-        product("tee", "tshirt", variant("t1", "Cotton", "M", 89900, false)));
+        product("maroon-cap", "cap", variant("c1", "Cotton twill", "Adjustable", 39900, false)),
+        product("blue-jersey", "tshirt", variant("t1", "Cotton", "M", 89900, false)));
     List<Shelf> shelves = Storefront.shelves(live);
     assertEquals(3, shelves.size());
     assertEquals("Jerseys", shelves.get(0).title);
     assertEquals("Full-Sleeve Jerseys", shelves.get(1).title);
     assertEquals("Caps", shelves.get(2).title);
     for (Shelf shelf : shelves) for (Product p : shelf.products) assertNotEquals("bottle", p.category);
-    assertEquals("tee", shelves.get(0).products.get(0).id);
+    assertEquals("blue-jersey", shelves.get(0).products.get(0).id);
     assertFalse(shelves.get(0).products.get(0).sample);
   }
 
-  @Test public void emptyOrSparseShelvesAreFilledWithLabelledSamples() {
-    List<Product> live = Collections.singletonList(product("tee", "tshirt", variant("t1", "Cotton", "M", 89900, false)));
+  @Test public void sparseShelvesContainOnlyPhotographedCatalogProducts() {
+    List<Product> live = Arrays.asList(
+        product("blue-jersey", "tshirt", variant("blue-m", "Standard", "M", 89900, true)),
+        product("old-generic", "cap", variant("old-cap", "Cotton", "Adjustable", 39900, true)));
     List<Shelf> shelves = Storefront.shelves(live);
-    Shelf jerseys = shelves.get(0), fullSleeve = shelves.get(1);
-    assertEquals(Storefront.SHELF_SIZE, jerseys.products.size());
-    assertTrue(jerseys.hasSamples());
-    assertEquals(Storefront.SHELF_SIZE, fullSleeve.products.size());
-    for (Product p : fullSleeve.products) {
-      assertTrue(p.sample);
-      assertEquals("full-sleeve", p.category);
-      assertTrue(p.id.startsWith("sample-"));
-    }
+    assertEquals(1, shelves.get(0).products.size());
+    assertFalse(shelves.get(0).hasSamples());
+    assertTrue(shelves.get(1).products.isEmpty());
+    assertTrue(shelves.get(2).products.isEmpty());
+    for (Shelf shelf : Storefront.shelves(Collections.emptyList())) assertTrue(shelf.products.isEmpty());
   }
 
-  @Test public void fullShelvesNeedNoSamples() {
-    List<Product> live = new ArrayList<>();
-    for (int i = 0; i < 6; i++) live.add(product("cap" + i, "cap", variant("c" + i, "Cotton twill", "Adjustable", 39900, true)));
-    Shelf caps = Storefront.shelves(live).get(2);
-    assertEquals(6, caps.products.size());
-    assertFalse(caps.hasSamples());
-  }
-
-  @Test public void samplesCannotGoInTheBag() {
-    for (String[] shelf : Storefront.SHELVES) {
-      List<Product> samples = Storefront.samples(shelf[0]);
-      assertTrue(samples.size() >= Storefront.SHELF_SIZE);
-      for (Product p : samples) assertNotNull(Storefront.addBlocker(p, p.defaultVariant()));
-    }
+  @Test public void onlyTheFourOriginalProductPhotosAreAllowed() {
+    for (String id : Arrays.asList("black-full-sleeve", "blue-jersey", "white-jersey", "maroon-cap"))
+      assertEquals("/assets/products/" + id + ".png", Storefront.photoPath(id));
+    assertNull(Storefront.photoPath("club-tee"));
+    assertNull(Storefront.photoPath("../secret"));
+    assertNull(Storefront.photoPath(null));
   }
 
   @Test public void pricedLiveOptionsCanBeSavedButUnpricedCannot() {
     Variant priced = variant("t-m", "Cotton", "M", 89900, false), unpriced = variant("t-l", "Cotton", "L", 0, false);
-    Product tee = product("tee", "tshirt", priced, unpriced);
+    Product tee = product("blue-jersey", "tshirt", priced, unpriced);
     assertNull(Storefront.addBlocker(tee, priced));
     assertNotNull(Storefront.addBlocker(tee, unpriced));
     assertEquals("In stock", Storefront.availability(tee, variant("x", "Cotton", "S", 89900, true), true));
@@ -161,20 +151,11 @@ public class StorefrontTest {
     assertEquals(0, product("z", "cap", variant("d", "Twill", "Adjustable", 0, false)).fromPrice());
   }
 
-  @Test public void liveColoursMapToMatchingDesigns() {
-    assertEquals("Boundary Classic", Storefront.designFor("Boundary Green").name);
-    assertEquals("Eternal Whites", Storefront.designFor("Off White").name);
-    assertEquals("Royal Rhythm", Storefront.designFor("royal rhythm").name);
-    assertEquals("Boundary Classic", Storefront.designFor(null).name);
-    assertTrue(Storefront.designFor("White").light());
-    assertFalse(Storefront.designFor("Navy").light());
-  }
-
   @Test public void catalogFindsVariantsAcrossProducts() {
     Variant m = variant("t-m", "Cotton", "M", 89900, false);
-    Catalog catalog = new Catalog(Collections.singletonList(product("tee", "tshirt", m)), false, -1);
+    Catalog catalog = new Catalog(Collections.singletonList(product("blue-jersey", "tshirt", m)), false, -1);
     assertSame(m, catalog.variant("t-m"));
-    assertEquals("tee", catalog.productOf("t-m").id);
+    assertEquals("blue-jersey", catalog.productOf("t-m").id);
     assertNull(catalog.variant("missing"));
   }
 }

@@ -8,63 +8,15 @@ import java.util.List;
 import java.util.Locale;
 import java.util.regex.Pattern;
 
-/** Store rules with no Android types: shelves, sample designs, rupee prices and the app-to-website bag format. */
+/** Store rules with no Android types: shelves, product photos, rupee prices and the app-to-website bag format. */
 public final class Storefront {
   private Storefront() {}
 
-  public static final int MAX_LINES = 10, MAX_QUANTITY = 10, SHELF_SIZE = 5;
-  public static final String BRAND = "Boundary", EYEBROW = "Boundary Teamwear",
-      SAMPLE_NOTE = "Sample designs — real stock appears when the shop opens";
+  public static final int MAX_LINES = 10, MAX_QUANTITY = 10;
+  public static final String BRAND = "Boundary", EYEBROW = "Boundary Teamwear";
   /** Category key and shelf title, in display order. Bottles are not part of the storefront. */
   public static final String[][] SHELVES = {{"tshirt", "Jerseys"}, {"full-sleeve", "Full-Sleeve Jerseys"}, {"cap", "Caps"}};
   private static final Pattern VARIANT_ID = Pattern.compile("[A-Za-z0-9._-]{1,100}");
-
-  /** A drawn colourway: body, stripe and trim colours and the stripe pattern ProductArt paints. */
-  public static final class Design {
-    public static final int WAVES = 0, SASH = 1, BAND = 2, PIPING = 3;
-    public final String name;
-    public final int body, stripe, trim, pattern;
-
-    Design(String name, int body, int stripe, int trim, int pattern) {
-      this.name = name;
-      this.body = body;
-      this.stripe = stripe;
-      this.trim = trim;
-      this.pattern = pattern;
-    }
-
-    /** True for near-white kit, which reads better on a dark backdrop. */
-    public boolean light() {
-      int r = body >> 16 & 0xff, g = body >> 8 & 0xff, b = body & 0xff;
-      return 0.299 * r + 0.587 * g + 0.114 * b > 200;
-    }
-  }
-
-  public static final Design[] DESIGNS = {
-      new Design("Boundary Classic", 0xff147653, 0xffd0ed8c, 0xff0d4e37, Design.BAND),
-      new Design("Green Blaze", 0xff0f5e4a, 0xfff2c94c, 0xff0a3d30, Design.WAVES),
-      new Design("Royal Rhythm", 0xff1f4fa8, 0xffff8a3d, 0xff163a7a, Design.SASH),
-      new Design("Eternal Whites", 0xfff7f7f2, 0xff147653, 0xffc9d3c6, Design.PIPING),
-      new Design("Saffron Strike", 0xffef8a24, 0xffffffff, 0xffb9601a, Design.WAVES),
-      new Design("Midnight Pace", 0xff1b2433, 0xff35b07f, 0xff0f1520, Design.SASH),
-      new Design("Maroon Heritage", 0xff7a1f2b, 0xffe2a92b, 0xff53141d, Design.BAND),
-      new Design("Teal Tide", 0xff0e7c86, 0xffb8f0e0, 0xff0a5960, Design.WAVES)};
-
-  /** The drawing for a variant colour, so live kit is never shown in a colour it does not come in. */
-  public static Design designFor(String colour) {
-    String c = colour == null ? "" : colour.trim().toLowerCase(Locale.ROOT);
-    for (Design d : DESIGNS) if (c.equals(d.name.toLowerCase(Locale.ROOT))) return d;
-    String[][] hints = {{"white", "Eternal Whites"}, {"cream", "Eternal Whites"}, {"royal", "Royal Rhythm"},
-        {"blue", "Royal Rhythm"}, {"navy", "Midnight Pace"}, {"black", "Midnight Pace"}, {"maroon", "Maroon Heritage"},
-        {"red", "Maroon Heritage"}, {"saffron", "Saffron Strike"}, {"orange", "Saffron Strike"}, {"teal", "Teal Tide"}};
-    for (String[] hint : hints) if (c.contains(hint[0])) return design(hint[1]);
-    return DESIGNS[0];
-  }
-
-  private static Design design(String name) {
-    for (Design d : DESIGNS) if (d.name.equals(name)) return d;
-    throw new IllegalArgumentException(name);
-  }
 
   public static final class Variant {
     public final String id, material, size, colour;
@@ -102,8 +54,6 @@ public final class Storefront {
       this.variants = Collections.unmodifiableList(new ArrayList<>(variants));
       this.sample = sample;
     }
-
-    public Design design() { return designFor(variants.isEmpty() ? "" : variants.get(0).colour); }
 
     /** Lowest positive price, or 0 when no option is priced yet. */
     public int fromPrice() {
@@ -166,52 +116,25 @@ public final class Storefront {
     }
   }
 
-  /** Live products first; sample designs fill each shelf up to SHELF_SIZE so the collection reads as a range. */
+  /** Show catalog products only; never invent listings when a shelf is empty. */
   public static List<Shelf> shelves(List<Product> live) {
     List<Shelf> out = new ArrayList<>();
     for (String[] shelf : SHELVES) {
       List<Product> items = new ArrayList<>();
-      for (Product p : live) if (!p.sample && p.category.equals(shelf[0]) && !p.variants.isEmpty()) items.add(p);
-      for (Product sample : samples(shelf[0])) {
-        if (items.size() >= SHELF_SIZE) break;
-        items.add(sample);
-      }
+      for (Product p : live) if (!p.sample && photoPath(p.id) != null && p.category.equals(shelf[0]) && !p.variants.isEmpty()) items.add(p);
       out.add(new Shelf(shelf[0], shelf[1], items));
     }
     return out;
   }
 
-  private static final String[][] SAMPLE_NAMES = {
-      {"tshirt", "Green Blaze Jersey", "Royal Rhythm Jersey", "Maroon Heritage Jersey", "Saffron Strike Jersey", "Teal Tide Jersey"},
-      {"full-sleeve", "Eternal Whites Full Sleeve", "Green Blaze Full Sleeve", "Royal Rhythm Full Sleeve",
-          "Maroon Heritage Full Sleeve", "Midnight Pace Full Sleeve"},
-      {"cap", "Midnight Pace Cap", "Eternal Whites Cap", "Saffron Strike Cap", "Maroon Heritage Cap", "Teal Tide Cap"}};
-
-  /** Made-up preview designs. Prices are the owner-confirmed list price for the category, shown as "Sample price". */
-  public static List<Product> samples(String category) {
-    List<Product> out = new ArrayList<>();
-    for (String[] row : SAMPLE_NAMES) {
-      if (!row[0].equals(category)) continue;
-      boolean cap = category.equals("cap");
-      int price = cap ? 39900 : category.equals("full-sleeve") ? 120000 : 89900;
-      String material = cap ? "Cotton twill" : "Performance polyester";
-      String[] sizes = cap ? new String[] {"Adjustable"} : new String[] {"S", "M", "L", "XL", "XXL"};
-      for (int i = 1; i < row.length; i++) {
-        String name = row[i];
-        String colour = designOfName(name).name;
-        String id = "sample-" + name.toLowerCase(Locale.ROOT).replace(' ', '-');
-        List<Variant> variants = new ArrayList<>();
-        for (String size : sizes) variants.add(new Variant(id + "-" + size.toLowerCase(Locale.ROOT), material, size, colour, price, false));
-        out.add(new Product(id, name, category,
-            "A sample Boundary design that previews the collection. It is not for sale yet.", variants, true));
-      }
+  /** Allowlisted original product photos, hosted by the same Boundary deployment. */
+  public static String photoPath(String id) {
+    if (id == null) return null;
+    switch (id) {
+      case "black-full-sleeve": case "blue-jersey": case "white-jersey": case "maroon-cap":
+        return "/assets/products/" + id + ".png";
+      default: return null;
     }
-    return out;
-  }
-
-  private static Design designOfName(String productName) {
-    for (Design d : DESIGNS) if (productName.startsWith(d.name)) return d;
-    return DESIGNS[0];
   }
 
   /** Why this option cannot go in the bag, or null when it can. Priced live options may be saved before stock is confirmed, as on the website. */

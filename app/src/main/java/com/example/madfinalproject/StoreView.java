@@ -127,7 +127,7 @@ public final class StoreView extends LinearLayout {
           cachedAt = System.currentTimeMillis();
         }
       } catch (Exception offline) {
-        // A stale catalog stays on screen; with none, the shelves fall back to sample designs.
+        // A stale catalog stays on screen; with none, a retry prompt is shown.
       }
       Storefront.Catalog done = result;
       main.post(() -> {
@@ -188,7 +188,7 @@ public final class StoreView extends LinearLayout {
   private void render() {
     shelves.removeAllViews();
     if (loading) status.setText("Loading the collection…");
-    else if (catalog == null) status.setText("Couldn't reach the store. Showing sample designs.");
+    else if (catalog == null) status.setText("Couldn't reach the store. Tap Retry to load the collection.");
     else status.setText(catalog.salesEnabled ? "Checkout open · pay securely with Razorpay"
         : "Preview · checkout opens once stock is confirmed");
     if (!loading && catalog == null) {
@@ -198,7 +198,10 @@ public final class StoreView extends LinearLayout {
       shelves.addView(retry);
     }
     List<Storefront.Product> live = catalog == null ? Collections.emptyList() : catalog.products;
-    for (Storefront.Shelf shelf : Storefront.shelves(live)) shelves.addView(shelf(shelf, loading));
+    for (Storefront.Shelf shelf : Storefront.shelves(live))
+      if (loading || !shelf.products.isEmpty()) shelves.addView(shelf(shelf, loading));
+    if (!loading && catalog != null && Storefront.shelves(live).stream().allMatch(s -> s.products.isEmpty()))
+      status.setText("The collection is currently empty. Please check back soon.");
   }
 
   private View shelf(Storefront.Shelf shelf, boolean placeholder) {
@@ -239,7 +242,6 @@ public final class StoreView extends LinearLayout {
     }
     scroller.addView(track);
     box.addView(scroller);
-    if (!placeholder && shelf.hasSamples()) box.addView(sampleNote(gutter));
     return box;
   }
 
@@ -247,7 +249,7 @@ public final class StoreView extends LinearLayout {
     LinearLayout card = Ui.column(activity);
     card.setBackground(Ui.outline(p.surface, p.line, Math.max(1, dp(1)), dp(16)));
     card.setClipToOutline(true);
-    card.addView(artFrame(product, product.design(), true), new LayoutParams(-1, artHeight(width)));
+    card.addView(artFrame(product), new LayoutParams(-1, artHeight(width)));
     LinearLayout info = Ui.column(activity);
     info.setPadding(dp(14), dp(12), dp(14), dp(16));
     info.addView(Ui.text(activity, Storefront.BRAND, 12, p.muted, false));
@@ -268,26 +270,9 @@ public final class StoreView extends LinearLayout {
     return card;
   }
 
-  /** Product drawing with its corner tag; only samples are tagged, since the catalog has no other badges. */
-  private FrameLayout artFrame(Storefront.Product product, Storefront.Design design, boolean inCard) {
+  private FrameLayout artFrame(Storefront.Product product) {
     FrameLayout frame = new FrameLayout(activity);
-    frame.addView(new ProductArt(activity, product.category, design, p.dark), new FrameLayout.LayoutParams(-1, -1));
-    if (product.sample) {
-      TextView tag = Ui.text(activity, "Sample", 12, p.onAccent, true);
-      tag.setPadding(dp(12), dp(6), dp(12), dp(6));
-      FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(-2, -2, Gravity.TOP | Gravity.START);
-      if (inCard) {
-        GradientDrawable bg = new GradientDrawable();
-        bg.setColor(p.accent);
-        float r = dp(12);
-        bg.setCornerRadii(new float[] {0, 0, 0, 0, r, r, 0, 0});
-        tag.setBackground(bg);
-      } else {
-        tag.setBackground(Ui.round(p.accent, dp(14)));
-        lp.setMargins(dp(12), dp(12), 0, 0);
-      }
-      frame.addView(tag, lp);
-    }
+    frame.addView(new ProductPhoto(activity, product.id, product.name, p), new FrameLayout.LayoutParams(-1, -1));
     return frame;
   }
 
@@ -301,19 +286,7 @@ public final class StoreView extends LinearLayout {
     }
     if (from) s.append("From ");
     s.append(Storefront.rupees(paise));
-    if (product.sample) {
-      int start = s.length();
-      s.append("  Sample price");
-      s.setSpan(new ForegroundColorSpan(p.muted), start, s.length(), 0);
-      s.setSpan(new AbsoluteSizeSpan(12, true), start, s.length(), 0);
-    }
     return s;
-  }
-
-  private TextView sampleNote(int side) {
-    TextView note = Ui.text(activity, Storefront.SAMPLE_NOTE, 12, p.muted, false);
-    note.setPadding(side, dp(10), side, 0);
-    return note;
   }
 
   // ---- Sheets ----
@@ -355,7 +328,6 @@ public final class StoreView extends LinearLayout {
     TextView title = Ui.text(activity, shelf.title, 24, p.ink, true);
     title.setPadding(0, dp(6), 0, 0);
     head.addView(title);
-    if (shelf.hasSamples()) head.addView(sampleNote(0));
     box.addView(head);
     int cell = (getResources().getDisplayMetrics().widthPixels - 2 * side) / 2 - dp(8);
     View[] cards = new View[shelf.products.size()];
@@ -370,8 +342,7 @@ public final class StoreView extends LinearLayout {
     box.setPadding(gutter, 0, gutter, dp(28));
     BottomSheetDialog dialog = sheet(box);
 
-    FrameLayout artFrame = artFrame(product, product.design(), false);
-    ProductArt art = (ProductArt) artFrame.getChildAt(0);
+    FrameLayout artFrame = artFrame(product);
     artFrame.setBackground(Ui.round(p.surface2, dp(18)));
     artFrame.setClipToOutline(true);
     box.addView(artFrame, new LayoutParams(-1, dp(300)));
@@ -422,7 +393,6 @@ public final class StoreView extends LinearLayout {
     refresh[0] = () -> {
       Storefront.Variant v = chosen[0];
       price.setText(priceText(product, v == null ? 0 : v.pricePaise, false));
-      art.setDesign(v == null ? product.design() : Storefront.designFor(v.colour));
       options.removeAllViews();
       String[][] fields = {{"material", "Material"}, {"size", "Size"}, {"colour", "Colour"}};
       for (String[] field : fields) {
@@ -523,8 +493,8 @@ public final class StoreView extends LinearLayout {
     row.setGravity(Gravity.TOP);
     row.setPadding(0, dp(14), 0, dp(14));
     FrameLayout thumb = new FrameLayout(activity);
-    thumb.addView(new ProductArt(activity, product == null ? "tshirt" : product.category,
-        v == null ? Storefront.DESIGNS[0] : Storefront.designFor(v.colour), p.dark), new FrameLayout.LayoutParams(-1, -1));
+    thumb.addView(new ProductPhoto(activity, product == null ? null : product.id,
+        product == null ? "Unavailable item" : product.name, p), new FrameLayout.LayoutParams(-1, -1));
     thumb.setBackground(Ui.round(p.surface2, dp(12)));
     thumb.setClipToOutline(true);
     row.addView(thumb, new LayoutParams(dp(64), dp(78)));
