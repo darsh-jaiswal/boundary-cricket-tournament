@@ -23,4 +23,9 @@ database checks, independent Java/JavaScript/database review, and 360px/1280px
 browser checks of the four images, details, size selection, bag totals,
 persistence, removal and failed-catalog behavior. Database tests use temporary
 tables and verify stock transfer, cancellation idempotence and historical IDs.
+Production verification confirmed four products/16 variants, byte-identical
+photos and a full APK download matching the published checksum. A 360px Android
+emulator loaded all four photos from production and saved the selected XXL
+jersey to its local bag; the device check passed. The real production mobile
+browser also verified cap details, bag pricing and anonymous checkout gating.
 No real payment was charged as part of these checks.

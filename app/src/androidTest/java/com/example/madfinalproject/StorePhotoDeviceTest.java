@@ -45,7 +45,7 @@ public class StorePhotoDeviceTest {
       onView(withText("Blue Jersey")).perform(scrollTo(),click());
       onView(withText("XXL")).inRoot(isDialog()).perform(scrollTo(),click());
       onView(withText("Add to bag")).inRoot(isDialog()).perform(scrollTo(),click());
-      onView(withText("Added to your bag · View bag")).inRoot(isDialog()).check(matches(isDisplayed()));
+      onView(withText("Added to your bag · View bag")).inRoot(isDialog()).perform(scrollTo()).check(matches(isDisplayed()));
       assertEquals("blue-jersey-xxl:1",prefs.getString("bag",""));
       Bitmap shot=InstrumentationRegistry.getInstrumentation().getUiAutomation().takeScreenshot();
       assertNotNull(shot);
