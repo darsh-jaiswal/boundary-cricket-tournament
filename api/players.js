@@ -2,6 +2,7 @@ import { guardRequest, rateLimit, clientIp } from '../server/security.js';
 import { createHash, createHmac, randomBytes, randomUUID } from 'node:crypto';
 import { db, clerk, verifiedMember, bodyOf, uuid, HttpError } from '../server/auth.js';
 import { googleEmail, normalizeEmail } from '../server/player-identity.js';
+import { normalizeUsername } from '../server/player-username.js';
 
 const hash = value => createHash('sha256').update(value).digest('hex');
 const emailHash = email => createHmac('sha256',process.env.CLERK_SECRET_KEY).update(email).digest('hex');
@@ -16,7 +17,7 @@ async function registeredUser(userId) {
   const user=await clerk().users.getUser(userId);
   const email=googleEmail(user);
   if(!email)throw new HttpError(403,'This player must sign in with Google before playing');
-  const sql=db();const rows=await sql`SELECT owner_id,name,email_hash,auth_provider FROM boundary_registered_players WHERE owner_id=${user.id}`;
+  const sql=db();const rows=await sql`SELECT owner_id,name,username,email_hash,auth_provider FROM boundary_registered_players WHERE owner_id=${user.id}`;
   if(!rows[0]||rows[0].auth_provider!=='google'||rows[0].email_hash!==emailHash(email))throw new HttpError(403,'Complete Google player registration first');
   return rows[0];
 }
@@ -31,7 +32,7 @@ export default async function handler(req,res) {
       const link=await device(req);
       if(!link.owner_id)return res.status(200).json({status:'pending'});
       const user=await registeredUser(link.owner_id);
-      return res.status(200).json({status:'linked',id:user.owner_id,name:user.name});
+      return res.status(200).json({status:'linked',id:user.owner_id,name:user.name,username:user.username});
     }
     if(req.method!=='POST'){res.setHeader('Allow','GET, POST');throw new HttpError(405,'Method not allowed');}
     const body=bodyOf(req,6000);
@@ -62,13 +63,15 @@ export default async function handler(req,res) {
       const identifier=typeof body.identifier==='string'?body.identifier.trim():'';
       const isId=/^user_[a-zA-Z0-9]+$/.test(identifier);
       const email=normalizeEmail(identifier);
-      if(!isId&&!email)throw new HttpError(400,'Enter the player Google email or Boundary player code');
+      const username=normalizeUsername(identifier);
+      if(!isId&&!email&&!username)throw new HttpError(400,'Enter a username, Google email or player code');
       const rows=isId
         ? await sql`SELECT owner_id,name FROM boundary_registered_players WHERE owner_id=${identifier} AND auth_provider='google'`
-        : await sql`SELECT owner_id,name FROM boundary_registered_players WHERE email_hash=${emailHash(email)} AND auth_provider='google'`;
-      if(!rows[0])throw new HttpError(404,'No registered Google player found. Ask them to sign in with Google and register at Boundary first.');
+        : email ? await sql`SELECT owner_id,name FROM boundary_registered_players WHERE email_hash=${emailHash(email)} AND auth_provider='google'`
+        : await sql`SELECT owner_id,name FROM boundary_registered_players WHERE username=${username} AND auth_provider='google'`;
+      if(!rows[0])throw new HttpError(404,'Player not found. Check their username or invite them to register with Google.');
       const user=await registeredUser(rows[0].owner_id);
-      return res.status(200).json({id:user.owner_id,name:user.name,verified:true});
+      return res.status(200).json({id:user.owner_id,name:user.name,username:user.username,verified:true});
     }
     if(['follow','unfollow','connections','profile'].includes(body.action)) {
       const link=await device(req);if(!link.owner_id)throw new HttpError(401,'Finish linking your player account');
@@ -107,13 +110,21 @@ export default async function handler(req,res) {
     if(body.action==='revoke') {const link=await device(req);await sql`UPDATE boundary_device_accounts SET expires=now() WHERE id=${link.id}`;return res.status(200).json({signedOut:true});}
     const user=await verifiedMember(req);
     await rateLimit(res,'players:account-write',user.id,15);
+    if(body.action==='me') {
+      const rows=await sql`SELECT owner_id AS id,name,username FROM boundary_registered_players WHERE owner_id=${user.id}`;
+      return res.status(200).json(rows[0]||{registered:false});
+    }
     if(body.action==='register') {
       if(body.termsVersion!=='2026-10-19')throw new HttpError(400,'Please accept the current Terms & Conditions before registering');
       if(typeof body.name!=='string'||body.name.trim().length<2||body.name.trim().length>100)
         throw new HttpError(400,'Enter your cricket display name (2–100 characters)');
-      await sql`INSERT INTO boundary_registered_players(owner_id,name,email_hash,auth_provider,terms_version) VALUES(${user.id},${body.name.trim()},${emailHash(user.email)},'google',${body.termsVersion})
-        ON CONFLICT(owner_id) DO UPDATE SET name=excluded.name,email_hash=excluded.email_hash,auth_provider=excluded.auth_provider,phone_hash=NULL,terms_version=excluded.terms_version`;
-      return res.status(200).json({registered:true,id:user.id,name:body.name.trim()});
+      const username=normalizeUsername(body.username);
+      if(!username)throw new HttpError(400,'Choose a username: 3–24 letters, numbers or underscores, starting with a letter. The user_ prefix is reserved for player codes.');
+      try {
+        await sql`INSERT INTO boundary_registered_players(owner_id,name,username,email_hash,auth_provider,terms_version) VALUES(${user.id},${body.name.trim()},${username},${emailHash(user.email)},'google',${body.termsVersion})
+          ON CONFLICT(owner_id) DO UPDATE SET name=excluded.name,username=excluded.username,email_hash=excluded.email_hash,auth_provider=excluded.auth_provider,phone_hash=NULL,terms_version=excluded.terms_version`;
+      } catch(error) { if(error.code==='23505')throw new HttpError(409,'That username or Google email is already registered. Choose another username or use your existing account.');throw error; }
+      return res.status(200).json({registered:true,id:user.id,name:body.name.trim(),username});
     }
     if(body.action==='approve') {
       await registeredUser(user.id);

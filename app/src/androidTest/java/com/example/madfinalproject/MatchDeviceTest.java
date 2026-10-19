@@ -24,8 +24,6 @@ public class MatchDeviceTest {
   @Before
   public void setUp() {
     context = InstrumentationRegistry.getInstrumentation().getTargetContext();
-    context.getSharedPreferences("official-access", 0).edit().clear().commit();
-    OfficialAccess.lock();
     context.getSharedPreferences("publication", 0).edit().putBoolean("paused", true).commit();
     db = new Repository(context);
     Team a = new Team("Device Test A"), b = new Team("Device Test B");
@@ -61,8 +59,6 @@ public class MatchDeviceTest {
             new String[] {match.id, findTeam("Device Test A"), findTeam("Device Test B")});
     db.getWritableDatabase().delete("outbox", "id=?", new String[] {match.id});
     db.close();
-    context.getSharedPreferences("official-access", 0).edit().clear().commit();
-    OfficialAccess.lock();
     context.getSharedPreferences("publication", 0).edit().putBoolean("paused", false).commit();
   }
 
@@ -75,9 +71,6 @@ public class MatchDeviceTest {
   public void scoreAndRestartRestoresSQLiteState() {
     try (ActivityScenario<MainActivity> scenario = ActivityScenario.launch(MainActivity.class)) {
       onView(withText("Score")).perform(click());
-      onView(withText("4")).perform(scrollTo(), click());
-      onView(withHint("PIN")).perform(typeText("123456"), closeSoftKeyboard());
-      onView(withText("Set PIN")).perform(click());
       onView(withText("4")).perform(scrollTo(), click());
       onView(withText("4 / 0")).check(matches(isDisplayed()));
       scenario.recreate();

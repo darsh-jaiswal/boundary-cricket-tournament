@@ -60,6 +60,10 @@ public class MainActivity extends AppCompatActivity {
     String id = getPreferences(0).getString("active", "");
     for (Match m : repo.matches()) if (m.id.equals(id)) match = m;
     role = getPreferences(0).getString("role", "Organizer");
+    if (role.equals("Manager") || role.equals("Captain")) {
+      role = "Organizer";
+      getPreferences(0).edit().putString("role", role).apply();
+    }
     tts = new TextToSpeech(this, status -> audioReady = status == TextToSpeech.SUCCESS);
     draw();
   }
@@ -373,7 +377,8 @@ public class MainActivity extends AppCompatActivity {
     who.addView(avatar);
     LinearLayout details = Ui.column(this);
     details.setPadding(dp(14), 0, dp(8), 0);
-    String name = profile.name().isEmpty() ? "Add your name" : profile.name();
+    String accountName = getSharedPreferences("boundary-account", 0).getString("name", "");
+    String name = profile.name().isEmpty() ? (accountName.isEmpty() ? "Your cricket profile" : accountName) : profile.name();
     details.addView(Ui.text(this, name, 18, INK, true));
     for (String line : new String[] {profile.email()}) {
       if (line.isEmpty()) continue;
@@ -394,10 +399,18 @@ public class MainActivity extends AppCompatActivity {
     social.addView(Ui.space(this, 8, 1));
     social.addView(Ui.iconButton(this, pal, "qr", 34, SURFACE, INK, () -> { sheet.dismiss();
       startActivity(new Intent(this, ProfileActivity.class).putExtra(ProfileActivity.EXTRA_SHEET, "qr")); }));
-    details.addView(social);
     who.addView(details, Ui.weight(1));
     who.addView(Ui.iconButton(this, pal, "edit", 36, SURFACE, INK, () -> { sheet.dismiss(); editProfile(); }));
     header.addView(who);
+    // Actions need the whole card width; inside the name column the QR button was clipped.
+    TextView connections = (TextView) social.getChildAt(0);
+    connections.setSingleLine(false);
+    connections.setMinHeight(dp(48));
+    connections.setLayoutParams(Ui.weight(1));
+    View qr = social.getChildAt(2);
+    qr.setLayoutParams(new LinearLayout.LayoutParams(dp(48), dp(48)));
+    qr.setContentDescription("Share your cricket profile QR code");
+    header.addView(social, new LinearLayout.LayoutParams(-1, -2));
     TextView workspace = Ui.text(this, "Workspace · " + role + "  ▾", 14, ON_ACCENT, true);
     workspace.setBackground(Ui.round(GREEN, dp(14)));
     workspace.setPadding(dp(14), dp(10), dp(14), dp(10));
@@ -661,9 +674,9 @@ public class MainActivity extends AppCompatActivity {
     String[] items = {"How do I score my first match?", "Who can edit a match?", "How do I add players?",
         "Where are voice commands and the stump cam?", "Contact support"};
     String[] answers = {
-        "Add two teams in My Cricket → Teams, add players by their Google emails or player codes, then tap + → Start a match. Hold a run button to record zones and overthrows.",
-        "The device workspace decides it. Organizer, Manager, Scorer and Umpire can change a match; Player and Spectator are read-only. Switch it from the profile panel.",
-        "Each player registers once using Google login on the Boundary website. In Teams, choose Add registered player and enter their Google email or player code.",
+        "Add two teams in My Cricket → Teams, add players by @username, then tap + → Start a match. Hold a run button to record zones and overthrows.",
+        "Organizer manages teams and tournaments. Scorer records deliveries and corrections. Umpire adds umpire tools and voice scoring. These three can edit on this device. Player and Spectator view matches without editing. Workspaces are local modes, not server-assigned permissions.",
+        "Each player signs in with Google and chooses a unique @username. In Teams, choose Add registered player to find their username, or Invite player on WhatsApp. The invitation opens registration; ask the player to send back their username, then find and add them to the squad.",
         "Switch the workspace to Umpire from the profile panel. Umpire tools then appears in the panel with voice commands and the stump cam."};
     new AlertDialog.Builder(this).setTitle("Get help").setItems(items, (d, w) -> {
       if (w < answers.length) message(items[w], answers[w]);
@@ -704,11 +717,14 @@ public class MainActivity extends AppCompatActivity {
   }
 
   private void roles() {
-    String[] rs = {"Organizer", "Manager", "Scorer", "Umpire", "Captain", "Player", "Spectator"};
+    String[] rs = {"Organizer", "Scorer", "Umpire", "Player", "Spectator"};
+    String[] descriptions = {"Organizer — teams, fixtures and tournaments", "Scorer — ball-by-ball scoring and corrections",
+        "Umpire — scoring workspace, umpire tools and voice scoring", "Player — your profile and read-only matches",
+        "Spectator — view matches and scorecards"};
     new AlertDialog.Builder(this)
         .setTitle("Workspace role")
         .setItems(
-            rs,
+            descriptions,
             (d, w) -> {
               String selectedRole = rs[w];
               if (selectedRole.equals("Player") && !PlayerAccount.linked(this)) {
@@ -727,7 +743,7 @@ public class MainActivity extends AppCompatActivity {
     if (role.equals("Spectator") || role.equals("Player")) {
       message(
           "Read-only workspace",
-          "Choose the assigned organizer, scorer or umpire workspace to make match changes.");
+          "Switch to Organizer, Scorer or Umpire to make changes on this device.");
       return false;
     }
     return true;
@@ -2320,7 +2336,7 @@ public class MainActivity extends AppCompatActivity {
       action(c, "Add registered player", () -> {
         if (!writable()) return;
         getPreferences(0).edit().putString("addingPlayerTeam", t.id).apply();
-        startActivityForResult(new Intent(this, PlayerAccountActivity.class).putExtra("pick", true), 88);
+        startActivityForResult(new Intent(this, PlayerAccountActivity.class).putExtra("pick", true).putExtra("teamName", t.name), 88);
       });
       action(c, "Players & career statistics", () -> players(t));
     }
