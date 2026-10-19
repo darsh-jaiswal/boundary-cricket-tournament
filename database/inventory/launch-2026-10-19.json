@@ -1,0 +1,194 @@
+[
+  {
+    "id": "club-cap-cotton",
+    "pricePaise": 39900,
+    "stock": 20,
+    "enabled": true
+  },
+  {
+    "id": "club-cap-performance",
+    "pricePaise": 39900,
+    "stock": 20,
+    "enabled": true
+  },
+  {
+    "id": "club-tee-cotton-l",
+    "pricePaise": 89900,
+    "stock": 20,
+    "enabled": true
+  },
+  {
+    "id": "club-tee-cotton-m",
+    "pricePaise": 89900,
+    "stock": 20,
+    "enabled": true
+  },
+  {
+    "id": "club-tee-cotton-s",
+    "pricePaise": 89900,
+    "stock": 20,
+    "enabled": true
+  },
+  {
+    "id": "club-tee-cotton-xl",
+    "pricePaise": 89900,
+    "stock": 20,
+    "enabled": true
+  },
+  {
+    "id": "club-tee-cotton-xxl",
+    "pricePaise": 89900,
+    "stock": 20,
+    "enabled": true
+  },
+  {
+    "id": "club-tee-performance-l",
+    "pricePaise": 89900,
+    "stock": 20,
+    "enabled": true
+  },
+  {
+    "id": "club-tee-performance-m",
+    "pricePaise": 89900,
+    "stock": 20,
+    "enabled": true
+  },
+  {
+    "id": "club-tee-performance-s",
+    "pricePaise": 89900,
+    "stock": 20,
+    "enabled": true
+  },
+  {
+    "id": "club-tee-performance-xl",
+    "pricePaise": 89900,
+    "stock": 20,
+    "enabled": true
+  },
+  {
+    "id": "club-tee-performance-xxl",
+    "pricePaise": 89900,
+    "stock": 20,
+    "enabled": true
+  },
+  {
+    "id": "club-tee-premium-l",
+    "pricePaise": 89900,
+    "stock": 20,
+    "enabled": true
+  },
+  {
+    "id": "club-tee-premium-m",
+    "pricePaise": 89900,
+    "stock": 20,
+    "enabled": true
+  },
+  {
+    "id": "club-tee-premium-s",
+    "pricePaise": 89900,
+    "stock": 20,
+    "enabled": true
+  },
+  {
+    "id": "club-tee-premium-xl",
+    "pricePaise": 89900,
+    "stock": 20,
+    "enabled": true
+  },
+  {
+    "id": "club-tee-premium-xxl",
+    "pricePaise": 89900,
+    "stock": 20,
+    "enabled": true
+  },
+  {
+    "id": "match-jersey-cotton-l",
+    "pricePaise": 120000,
+    "stock": 20,
+    "enabled": true
+  },
+  {
+    "id": "match-jersey-cotton-m",
+    "pricePaise": 120000,
+    "stock": 20,
+    "enabled": true
+  },
+  {
+    "id": "match-jersey-cotton-s",
+    "pricePaise": 120000,
+    "stock": 20,
+    "enabled": true
+  },
+  {
+    "id": "match-jersey-cotton-xl",
+    "pricePaise": 120000,
+    "stock": 20,
+    "enabled": true
+  },
+  {
+    "id": "match-jersey-cotton-xxl",
+    "pricePaise": 120000,
+    "stock": 20,
+    "enabled": true
+  },
+  {
+    "id": "match-jersey-performance-l",
+    "pricePaise": 120000,
+    "stock": 20,
+    "enabled": true
+  },
+  {
+    "id": "match-jersey-performance-m",
+    "pricePaise": 120000,
+    "stock": 20,
+    "enabled": true
+  },
+  {
+    "id": "match-jersey-performance-s",
+    "pricePaise": 120000,
+    "stock": 20,
+    "enabled": true
+  },
+  {
+    "id": "match-jersey-performance-xl",
+    "pricePaise": 120000,
+    "stock": 20,
+    "enabled": true
+  },
+  {
+    "id": "match-jersey-performance-xxl",
+    "pricePaise": 120000,
+    "stock": 20,
+    "enabled": true
+  },
+  {
+    "id": "match-jersey-premium-l",
+    "pricePaise": 120000,
+    "stock": 20,
+    "enabled": true
+  },
+  {
+    "id": "match-jersey-premium-m",
+    "pricePaise": 120000,
+    "stock": 20,
+    "enabled": true
+  },
+  {
+    "id": "match-jersey-premium-s",
+    "pricePaise": 120000,
+    "stock": 20,
+    "enabled": true
+  },
+  {
+    "id": "match-jersey-premium-xl",
+    "pricePaise": 120000,
+    "stock": 20,
+    "enabled": true
+  },
+  {
+    "id": "match-jersey-premium-xxl",
+    "pricePaise": 120000,
+    "stock": 20,
+    "enabled": true
+  }
+]

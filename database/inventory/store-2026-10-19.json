@@ -1,0 +1,8 @@
+{
+  "description": "Owner-confirmed launch stock and fulfilment settings. Initial activation only; do not reset stock after orders.",
+  "paymentMode": "live",
+  "salesEnabled": true,
+  "shippingPaise": 5000,
+  "dispatchDays": "3-5",
+  "supportEmail": "darshjaiswal009.xi@gmail.com"
+}
