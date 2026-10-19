@@ -15,6 +15,18 @@ public final class PlayerAccount {
   public static boolean linked(Context context) {
     return context.getSharedPreferences("boundary-account", 0).getBoolean("linked", false);
   }
+  /** Call off the UI thread. Keep the session on network failure so revocation can be retried. */
+  public static void signOutDevice(Context context) throws Exception {
+    android.content.SharedPreferences prefs = context.getSharedPreferences("boundary-account", 0);
+    if (!prefs.getString("token", "").isEmpty()) {
+      try { request(context, new JSONObject().put("action", "revoke")); }
+      catch (Exception error) {
+        // An expired/invalid session is already unusable; request clears it on HTTP 401.
+        if (!prefs.getString("token", "").isEmpty()) throw error;
+      }
+    }
+    prefs.edit().clear().apply();
+  }
   public static JSONObject request(Context context, JSONObject body) throws Exception {
     HttpURLConnection connection = (HttpURLConnection) new URL(ORIGIN + "/api/players").openConnection();
     connection.setConnectTimeout(15000); connection.setReadTimeout(25000);

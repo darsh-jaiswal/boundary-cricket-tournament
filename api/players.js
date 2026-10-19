@@ -121,8 +121,11 @@ export default async function handler(req,res) {
       const username=normalizeUsername(body.username);
       if(!username)throw new HttpError(400,'Choose a username: 3–24 letters, numbers or underscores, starting with a letter. The user_ prefix is reserved for player codes.');
       try {
-        await sql`INSERT INTO boundary_registered_players(owner_id,name,username,email_hash,auth_provider,terms_version) VALUES(${user.id},${body.name.trim()},${username},${emailHash(user.email)},'google',${body.termsVersion})
-          ON CONFLICT(owner_id) DO UPDATE SET name=excluded.name,username=excluded.username,email_hash=excluded.email_hash,auth_provider=excluded.auth_provider,phone_hash=NULL,terms_version=excluded.terms_version`;
+        const saved=await sql`INSERT INTO boundary_registered_players(owner_id,name,username,email_hash,auth_provider,terms_version) VALUES(${user.id},${body.name.trim()},${username},${emailHash(user.email)},'google',${body.termsVersion})
+          ON CONFLICT(owner_id) DO UPDATE SET name=excluded.name,username=excluded.username,email_hash=excluded.email_hash,auth_provider=excluded.auth_provider,phone_hash=NULL,terms_version=excluded.terms_version
+          WHERE boundary_registered_players.username IS NULL OR boundary_registered_players.username=excluded.username
+          RETURNING owner_id`;
+        if(!saved.length)throw new HttpError(409,'Your username is permanent and cannot be changed. Refresh this page to restore your saved username.');
       } catch(error) { if(error.code==='23505')throw new HttpError(409,'That username or Google email is already registered. Choose another username or use your existing account.');throw error; }
       return res.status(200).json({registered:true,id:user.id,name:body.name.trim(),username});
     }

@@ -5,7 +5,7 @@
 1. Open Teams → Add registered player → Continue with Google.
 2. In the browser, sign in with Google and choose your cricket display name and unique username.
    Usernames have 3–24 letters, digits or underscores, start with a letter, and are case-insensitive.
-   The `user_` prefix is reserved for account codes.
+   The `user_` prefix is reserved for account codes. Once saved, a username is permanent.
 3. Accept the terms and register. Approve **Link my Boundary app** only for your own device request.
 4. Return to the app. It refreshes the link automatically; Refresh account status is available as a fallback.
 5. Search another registered player's exact `@username`, confirm their name, and add them to your team.
@@ -13,6 +13,18 @@
 
 Players registered before usernames were introduced can open Manage username / Google account
 and choose a handle. Their existing squads remain linked to the same account ID.
+Returning registered players see their saved username as read-only and can update their display name.
+Saving shows progress and success/errors next to the action button.
+
+## Logout
+
+Android Logout first revokes the linked device session. Failed revocation is reported and can
+be retried. After success the app removes local account credentials, returns to Home in Spectator
+mode and opens `/logout.html` in the browser to end its Boundary/Clerk session. The browser
+confirms sign-out or offers retry on failure. It does not sign you out of Google's other services.
+The registration page also has a separate **Sign out of this browser** button; that browser action
+does not revoke another device's app token. Logout keeps player registration, permanent username,
+saved teams, tournaments and match history.
 
 ## WhatsApp invitations
 

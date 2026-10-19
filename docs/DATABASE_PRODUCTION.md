@@ -7,9 +7,35 @@ The existing provisioned database is reused; this change does not add a provider
 create a replacement database, or enable a paid plan.
 
 PostgreSQL supports the relational tournament/account model we will need as the
-app grows. Current cloud storage remains match snapshots plus encrypted journals;
-teams, tournaments and player registration are still primarily device records.
+app grows. Cloud storage includes published match snapshots, encrypted journals,
+Google player registrations, public usernames, device links, community data and shop data.
+Team squads, tournaments and scoring journals remain primarily device records.
 Shared accounts and server-enforced organization roles remain separate work.
+
+## What is stored where
+
+| Location | Data |
+| --- | --- |
+| SQLite (`boundary.db`) inside Android | Teams, tournaments, match rules, selected squads, ball-by-ball journals, player/team profile records, and pending-publication outbox |
+| Neon: `cricket_matches` | Published spectator score snapshots, revision/time, hashed match authority, encrypted private match journal |
+| Neon: player tables | Clerk account ID, cricket display name, permanent username, keyed Google-email hash, provider, terms version and registration time; follower relationships |
+| Neon: device accounts | Hashed device token/IP, linked account ID, expiry and lookup counters |
+| Neon: community tables | Posts/replies, author/account ID, category/city and timestamps |
+| Neon: merchandise tables | Products/variants, material/size/colour, prices, stock, reservations and order items/totals/status |
+| Neon: shop orders | Customer name, delivery address and email; Razorpay order/payment/refund references and status; terms version/timestamps |
+| Neon: operations | Rate-limit counters and schema-migration ledger/checksums |
+
+Clerk manages Google sign-in/session identity; Boundary does not store Google passwords.
+Card numbers, CVV and UPI PIN are handled by Razorpay, not saved by Boundary in Neon.
+Legacy phone-hash fields may remain from earlier registrations; new player registration uses Google.
+Profile photos/preferences and local account credentials use Android private files/preferences,
+not SQLite tables. Offline voice models/recordings and replay files are also local files.
+
+SQLite is an embedded relational database: it lives on the phone and works without a database
+server. Neon hosts PostgreSQL online. The app does not switch one off when the other is available:
+SQLite saves scoring locally, and selected published data is sent to Neon. Registration, squad
+validation, community and checkout require the online services. Full team/tournament cloud sync
+is not implemented merely by adding Neon.
 
 ## Current safeguards
 
