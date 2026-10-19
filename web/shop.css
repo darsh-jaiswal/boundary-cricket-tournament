@@ -1,5 +1,6 @@
 @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;600;700;800&display=swap');
 :root{--ink:#142a24;--green:#147653;--green-deep:#0b5c3e;--lime:#d0ed8c;--paper:#f5f5ed;--surface:#fff;--tint:#e7eddf;--line:#dfe5d8;--muted:#66756b;--gutter:24px;--radius:16px;--ease:cubic-bezier(.2,.8,.2,1);--lift:0 1px 2px rgb(20 42 36/.06),0 14px 30px -18px rgb(20 42 36/.32);--float:0 2px 6px rgb(20 42 36/.08),0 28px 56px -22px rgb(20 42 36/.42)}
+[hidden]{display:none!important}
 *{box-sizing:border-box}html{scroll-behavior:smooth;scroll-padding-top:90px}body{margin:0;background:var(--paper);color:var(--ink);font:16px/1.6 'DM Sans',sans-serif}a{color:inherit}
 header{padding:18px max(24px,calc((100% - 1200px)/2));display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--line);background:var(--paper);position:sticky;top:0;z-index:4}
 .brand{font:800 22px/1.2 Manrope,sans-serif;letter-spacing:.07em;text-decoration:none}.brand span{display:block;font:10px/1.8 'DM Sans',sans-serif;letter-spacing:.25em}

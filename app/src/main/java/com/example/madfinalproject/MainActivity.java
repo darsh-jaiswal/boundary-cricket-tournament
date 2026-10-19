@@ -44,6 +44,8 @@ public class MainActivity extends AppCompatActivity {
   private String renderedPageKey;
   private TextToSpeech tts;
   private boolean audioReady, pa;
+  private boolean logoutUiVisible;
+  private static volatile boolean logoutWorkerRunning;
   private final Handler handler = new Handler(Looper.getMainLooper());
   private AlertDialog pending;
 
@@ -66,6 +68,19 @@ public class MainActivity extends AppCompatActivity {
     }
     tts = new TextToSpeech(this, status -> audioReady = status == TextToSpeech.SUCCESS);
     draw();
+  }
+
+  @Override
+  protected void onResume() {
+    super.onResume();
+    logoutUiVisible = true;
+    completePendingLogout();
+  }
+
+  @Override
+  protected void onPause() {
+    logoutUiVisible = false;
+    super.onPause();
   }
 
   @Override
@@ -624,14 +639,55 @@ public class MainActivity extends AppCompatActivity {
   }
 
   private void logout() {
-    new AlertDialog.Builder(this).setTitle("Log out of your Google player account?")
-        .setMessage("This device stops acting for your player account. Saved matches, teams and recovery codes stay on this phone.")
+    new AlertDialog.Builder(this).setTitle("Log out of Boundary?")
+        .setMessage("This disconnects your player account and opens your browser to finish signing out of Boundary. Your registered username, saved matches, teams and recovery codes are kept.")
         .setNegativeButton("Cancel", null)
-        .setPositiveButton("Log out", (d, w) -> new Thread(() -> {
-          try { PlayerAccount.request(this, new org.json.JSONObject().put("action", "revoke")); } catch (Exception ignored) { }
-          getSharedPreferences("boundary-account", 0).edit().clear().apply();
-          runOnUiThread(() -> { Toast.makeText(this, "Logged out", Toast.LENGTH_SHORT).show(); draw(); });
-        }, "Boundary-logout").start()).show();
+        .setPositiveButton("Log out", (d, w) -> {
+          if (logoutWorkerRunning) return;
+          logoutWorkerRunning = true;
+          getPreferences(0).edit().putBoolean("logoutInProgress", true).remove("logoutError").apply();
+          completePendingLogout();
+          new Thread(() -> {
+          try {
+            PlayerAccount.signOutDevice(getApplicationContext());
+            // Persist the follow-up before touching this Activity: it may have been recreated.
+            getPreferences(0).edit().putString("role", "Spectator").putBoolean("browserSignOutPending", true)
+                .putBoolean("logoutInProgress", false).apply();
+          } catch (Exception error) {
+            getPreferences(0).edit().putBoolean("logoutInProgress", false)
+                .putString("logoutError", "Could not disconnect this device. Connect to the internet and try again. "
+                    + (error.getMessage() == null ? "" : error.getMessage())).apply();
+          } finally { logoutWorkerRunning = false; }
+          }, "Boundary-logout").start();
+        }).show();
+  }
+
+  private void completePendingLogout() {
+    if (!logoutUiVisible || isFinishing() || isDestroyed()) return;
+    android.content.SharedPreferences prefs = getPreferences(0);
+    if (prefs.getBoolean("logoutInProgress", false)) {
+      if (logoutWorkerRunning) {
+        handler.postDelayed(this::completePendingLogout, 300);
+        return;
+      }
+      // A fresh process has no old worker. Recover rather than polling a persisted flag forever.
+      android.content.SharedPreferences.Editor recovery = prefs.edit().putBoolean("logoutInProgress", false);
+      if (getSharedPreferences("boundary-account", 0).getString("token", "").isEmpty())
+        recovery.putString("role", "Spectator").putBoolean("browserSignOutPending", true);
+      else recovery.putString("logoutError", "Logout was interrupted. Connect to the internet and choose Logout again.");
+      recovery.apply();
+    }
+    if (prefs.contains("logoutError")) {
+      String error = prefs.getString("logoutError", "Connect and try again.");
+      prefs.edit().remove("logoutError").apply(); message("Logout did not finish", error);
+    }
+    if (!prefs.getBoolean("browserSignOutPending", false)) return;
+    prefs.edit().remove("browserSignOutPending").apply();
+    role = "Spectator"; page = "Home"; draw();
+    try { startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(PlayerAccount.ORIGIN + "/logout.html"))); }
+    catch (ActivityNotFoundException missing) {
+      message("App signed out", "The browser could not open. Visit " + PlayerAccount.ORIGIN + "/logout.html to finish signing out of Boundary in your browser.");
+    }
   }
 
   private void deleteAccount() {
