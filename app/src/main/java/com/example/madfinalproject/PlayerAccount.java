@@ -36,7 +36,7 @@ public final class PlayerAccount {
       }
       JSONObject result = new JSONObject(bytes.toString("UTF-8"));
       if (status >= 400) {
-        if (status == 401) context.getSharedPreferences("boundary-account", 0).edit().putBoolean("linked", false).apply();
+        if (status == 401) context.getSharedPreferences("boundary-account", 0).edit().clear().apply();
         throw new IllegalStateException(result.optString("error", "Player service is unavailable"));
       }
       return result;

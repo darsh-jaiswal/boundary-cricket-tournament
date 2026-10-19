@@ -38,7 +38,7 @@ The `boundary_take_rate_limit` PostgreSQL function increments counters atomicall
 
 ## Existing authority and privacy boundaries
 
-Phone registration and shop writes require server-verified Clerk accounts. Linked device sessions store hashes on the server and expire; phone lookup is private and quota-limited. Match publication remains capability based: the device-owned recovery key controls its match. The user explicitly requested no local PIN. An unlocked scoring device and the selected workspace are therefore a local trust boundary, not a distributed official-role permission system.
+Player registration and shop writes require server-verified Google identities through Clerk. Player usernames are unique public handles; email lookup remains exact, private and quota-limited. Linked device sessions store hashes on the server and expire. Match publication remains capability based: the device-owned recovery key controls its match. There is no local PIN. An unlocked scoring device and the selected workspace are a local trust boundary, not a distributed official-role permission system. Manager and Captain modes were duplicates of Organizer and are migrated to Organizer.
 
 Payment confirmation checks account ownership, signature, server amount/currency and capture. No payment credentials are committed. Razorpay processes card/UPI credentials. Provider failures preserve durable order recovery. Refunding a late captured payment on a cancelled order uses an idempotency key. Browser success does not by itself prove payment capture or dispatch.
 

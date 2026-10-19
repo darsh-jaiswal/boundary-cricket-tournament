@@ -78,7 +78,7 @@
       <p>Clerk, our sign-in provider, processes your Google account identity, email address and sign-in sessions. Clerk also holds any name or username you add to your account. We use that name as the author name on your community posts.</p>
 
       <h3>Player registration</h3>
-      <p>When you register as a player, we store your account identifier, your cricket display name, a keyed hash of your verified Google email, the registration time and the version of the terms you accepted. The hash lets a linked scoring app find you by exact Google email or player code. A linked app that enters your Google email or player code sees your display name and account identifier. Your Google email itself is not shown in any public directory.</p>
+      <p>When you register as a player, we store your account identifier, cricket display name, unique public username, a keyed hash of your verified Google email, the registration time and the version of the terms you accepted. A linked scoring app can find you by exact username, Google email or player code and receives your display name, username and account identifier. Your Google email itself is not shown in any public directory. WhatsApp invitations open a message composer on your device; Boundary does not read your WhatsApp contacts or send messages automatically.</p>
 
       <h3>Device linking</h3>
       <p>When you link the Android app, we store a hash of the device session token, a hash of the requesting network address, expiry times and lookup counters. The app keeps its session token privately on your phone and excludes it from its declared Android backup set.</p>
@@ -190,7 +190,7 @@
         <li><strong>With service providers.</strong> We share information with the providers in <a href="#third-parties">section 7</a> only as needed for their service.</li>
         <li><strong>For delivery.</strong> We give delivery details to authorised fulfilment and delivery partners for paid orders.</li>
         <li><strong>Publicly.</strong> Public scores, player names on scorecards, community posts and replies are visible to other users and to anyone who visits the site.</li>
-        <li><strong>With linked scoring apps.</strong> A linked app that enters a registered player's exact Google email or player code receives that player's display name and account identifier.</li>
+        <li><strong>With linked scoring apps.</strong> A linked app that enters a registered player's exact username, Google email or player code receives that player's display name, username and account identifier.</li>
         <li><strong>When the law requires it.</strong> We may disclose information to comply with a legal obligation or a valid request from a government authority.</li>
         <li><strong>With your consent.</strong> We share information in other ways only when you ask us to.</li>
       </ul>
