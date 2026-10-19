@@ -13,11 +13,11 @@ All variants have `enabled: false`. Reapplying this file overwrites stock quanti
 do not run it over an operating store or after orders have reserved stock.
 
 `merchandise-store.seed.json` proposes ₹50 shipping and a 3–5 day dispatch estimate.
-The support email is intentionally empty, and sales stay disabled. This file is a reference
+The owner-provided support email is `darshjaiswal009.xi@gmail.com`, and sales stay disabled. This file is a reference
 for configuration, not a script that updates Vercel environment variables.
 
-Before opening real-money checkout, the owner must provide a working support email and confirm
-that these quantities and delivery settings represent orders they can fulfil. Demo items should
+Before opening real-money checkout, the owner must confirm that these quantities and delivery
+settings represent orders they can fulfil. Demo items should
 use Razorpay test-mode keys instead. The user's Razorpay live activation is confirmed;
 these files do not change keys, enable checkout or create a payment.
 
