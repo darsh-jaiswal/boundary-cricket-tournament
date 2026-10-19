@@ -1,0 +1,8 @@
+{
+  "description": "Sample settings. Confirm actual stock, shipping and dispatch before enabling live sales.",
+  "paymentMode": "live",
+  "salesEnabled": false,
+  "shippingPaise": 5000,
+  "dispatchDays": "3-5",
+  "supportEmail": null
+}
