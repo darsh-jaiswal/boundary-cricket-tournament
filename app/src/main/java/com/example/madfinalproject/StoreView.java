@@ -153,7 +153,7 @@ public final class StoreView extends LinearLayout {
 
   private void finishRefresh() { Runnable done = refreshed; refreshed = () -> {}; done.run(); }
 
-  private static JSONObject fetch() throws Exception {
+  static JSONObject fetch() throws Exception {
     HttpURLConnection connection = (HttpURLConnection) new URL(PlayerAccount.ORIGIN + "/api/shop").openConnection();
     connection.setConnectTimeout(10000);
     connection.setReadTimeout(15000);
@@ -176,7 +176,7 @@ public final class StoreView extends LinearLayout {
     }
   }
 
-  private static Storefront.Catalog parse(JSONObject json) {
+  static Storefront.Catalog parse(JSONObject json) {
     List<Storefront.Product> products = new ArrayList<>();
     JSONArray items = json.optJSONArray("products");
     for (int i = 0; items != null && i < items.length(); i++) {
@@ -353,10 +353,19 @@ public final class StoreView extends LinearLayout {
   }
 
   private void openProduct(Storefront.Product product) {
+    reloadBag();
     final Storefront.Variant[] chosen = {product.defaultVariant()};
     LinearLayout box = Ui.column(activity);
     box.setPadding(gutter, 0, gutter, dp(28));
-    BottomSheetDialog dialog = sheet(box);
+    android.app.Dialog dialog = new android.app.Dialog(activity, android.R.style.Theme_Material_Light_NoActionBar);
+    LinearLayout frame=Ui.column(activity);frame.setBackgroundColor(p.bg);
+    LinearLayout header=Ui.row(activity);header.setPadding(gutter,dp(12),gutter,dp(12));
+    header.addView(Ui.chip(activity,p,"Back",false,dialog::dismiss));
+    header.addView(Ui.text(activity,product.name,18,p.ink,true),Ui.weight(1));
+    header.addView(Ui.chip(activity,p,"Cart",false,()->{dialog.dismiss();openBag();}));frame.addView(header);
+    NestedScrollView scroll=new NestedScrollView(activity);scroll.addView(box);frame.addView(scroll,new LayoutParams(-1,0,1));
+    LinearLayout actions=Ui.row(activity);actions.setPadding(gutter,dp(12),gutter,dp(12));actions.setBackgroundColor(p.surface);frame.addView(actions);
+    dialog.setContentView(frame);UiInsets.apply(frame);
 
     FrameLayout artFrame = artFrame(product);
     artFrame.setBackground(Ui.round(p.surface2, dp(18)));
@@ -382,7 +391,7 @@ public final class StoreView extends LinearLayout {
     availability.setPadding(0, dp(18), 0, 0);
     box.addView(availability);
     TextView note = Ui.text(activity, "", 13, p.muted, false);
-    TextView add = Ui.pill(activity, p, "Add to bag", true, () -> {
+    TextView add = Ui.pill(activity, p, "Add to cart", true, () -> {
       Storefront.Variant v = chosen[0];
       if (Storefront.addBlocker(product, v) != null) return;
       switch (Storefront.add(bag, v.id)) {
@@ -399,9 +408,12 @@ public final class StoreView extends LinearLayout {
           note.setText("Your bag holds up to " + Storefront.MAX_LINES + " different options.");
       }
     });
-    LayoutParams al = new LayoutParams(-1, -2);
-    al.topMargin = dp(14);
-    box.addView(add, al);
+    TextView buy=Ui.pill(activity,p,"Buy now",false,()->{
+      Storefront.Variant v=chosen[0];if(Storefront.addBlocker(product,v)!=null)return;
+      if(Storefront.add(bag,v.id)==Storefront.Added.ADDED){saveBag();dialog.dismiss();openBag();}
+      else note.setText("Your cart has reached its item limit.");
+    });
+    actions.addView(buy,Ui.weight(1));actions.addView(Ui.space(activity,10,1));actions.addView(add,Ui.weight(1));
     note.setPadding(0, dp(12), 0, 0);
     box.addView(note);
 
@@ -410,7 +422,7 @@ public final class StoreView extends LinearLayout {
       Storefront.Variant v = chosen[0];
       price.setText(priceText(product, v == null ? 0 : v.pricePaise, false));
       options.removeAllViews();
-      String[][] fields = {{"material", "Material"}, {"size", "Size"}, {"colour", "Colour"}};
+      String[][] fields = {{"size", "Select size"}};
       for (String[] field : fields) {
         List<String> values = Storefront.options(product.variants, field[0]);
         if (values.isEmpty()) continue;
@@ -436,146 +448,19 @@ public final class StoreView extends LinearLayout {
       availability.setText(Storefront.availability(product, v, catalog != null && catalog.salesEnabled));
       availability.setTextColor(v != null && v.available && !product.sample ? p.accent : p.muted);
       String blocker = Storefront.addBlocker(product, v);
-      enable(add, blocker == null);
+      enable(add, blocker == null && v != null && v.available);
+      enable(buy, blocker == null && v != null && v.available);
       note.setText(blocker == null ? "" : blocker);
       note.setTextColor(p.muted);
       note.setOnClickListener(null);
     };
     refresh[0].run();
     dialog.show();
+    dialog.getWindow().setLayout(-1,-1);
   }
 
   private void openBag() {
-    LinearLayout box = Ui.column(activity);
-    box.setPadding(gutter, 0, gutter, dp(28));
-    BottomSheetDialog dialog = sheet(box);
-    Runnable[] draw = new Runnable[1];
-    draw[0] = () -> {
-      box.removeAllViews();
-      LinearLayout head = Ui.row(activity);
-      head.addView(Ui.text(activity, "Your bag", 24, p.ink, true), Ui.weight(1));
-      int items = Storefront.count(bag);
-      head.addView(Ui.text(activity, items == 1 ? "1 item" : items + " items", 14, p.muted, false));
-      box.addView(head);
-      if (bag.isEmpty()) {
-        TextView empty = Ui.text(activity, "Your bag is empty. Pick your kit from the collections.", 15, p.muted, false);
-        empty.setPadding(0, dp(18), 0, dp(18));
-        box.addView(empty);
-        box.addView(Ui.pill(activity, p, "Browse the collection", false, dialog::dismiss), new LayoutParams(-1, -2));
-      } else {
-        long subtotal = 0;
-        boolean allKnown = catalog != null;
-        for (Storefront.Line line : new ArrayList<>(bag)) {
-          Storefront.Variant v = catalog == null ? null : catalog.variant(line.variantId);
-          Storefront.Product product = catalog == null ? null : catalog.productOf(line.variantId);
-          if (v == null) allKnown = false;
-          else subtotal += (long) v.pricePaise * line.quantity;
-          box.addView(bagLine(line, product, v, draw[0]));
-          box.addView(Ui.divider(activity, p));
-        }
-        int shipping = catalog == null ? -1 : catalog.shippingPaise;
-        box.addView(sum("Subtotal", allKnown ? Storefront.rupees(subtotal) : "Confirmed on the website", false));
-        box.addView(sum("Delivery", shipping < 0 ? "Calculated at checkout" : shipping == 0 ? "Free" : Storefront.rupees(shipping), false));
-        if (allKnown && shipping >= 0) box.addView(sum("Total", Storefront.rupees(subtotal + shipping), true));
-        List<Storefront.Line> lines = checkoutLines();
-        TextView checkout = Ui.pill(activity, p, "Checkout securely with Razorpay", true,
-            () -> browse(Storefront.checkoutUrl(PlayerAccount.ORIGIN, lines)));
-        enable(checkout, !lines.isEmpty());
-        LayoutParams cl = new LayoutParams(-1, -2);
-        cl.topMargin = dp(18);
-        box.addView(checkout, cl);
-        TextView how = Ui.text(activity, catalog != null && catalog.salesEnabled
-            ? "You'll sign in on the Boundary website and pay through Razorpay. Prices and stock are checked again before payment."
-            : "Checkout opens once stock and delivery are confirmed. Your bag will be waiting on the Boundary website.",
-            13, p.muted, false);
-        how.setPadding(0, dp(12), 0, 0);
-        box.addView(how);
-      }
-      LinearLayout links = Ui.row(activity);
-      links.setPadding(0, dp(18), 0, 0);
-      links.addView(link("Returns", "/returns.html"));
-      links.addView(Ui.text(activity, "  ·  ", 13, p.muted, false));
-      links.addView(link("Terms", "/terms.html"));
-      links.addView(Ui.text(activity, "  ·  ", 13, p.muted, false));
-      links.addView(link("Privacy", "/privacy.html"));
-      box.addView(links);
-    };
-    draw[0].run();
-    dialog.show();
-  }
-
-  private View bagLine(Storefront.Line line, Storefront.Product product, Storefront.Variant v, Runnable redraw) {
-    LinearLayout row = Ui.row(activity);
-    row.setGravity(Gravity.TOP);
-    row.setPadding(0, dp(14), 0, dp(14));
-    FrameLayout thumb = new FrameLayout(activity);
-    thumb.addView(new ProductPhoto(activity, product == null ? null : product.id,
-        product == null ? "Unavailable item" : product.name, p), new FrameLayout.LayoutParams(-1, -1));
-    thumb.setBackground(Ui.round(p.surface2, dp(12)));
-    thumb.setClipToOutline(true);
-    row.addView(thumb, new LayoutParams(dp(64), dp(78)));
-
-    LinearLayout info = Ui.column(activity);
-    info.setPadding(dp(12), 0, dp(8), 0);
-    String title = product != null ? product.name : catalog == null ? "Loading item details…" : "No longer in the store";
-    info.addView(Ui.text(activity, title, 15, p.ink, true));
-    String detail = v != null ? v.material + " · " + v.size + " · " + v.colour
-        : catalog == null ? "Details load when you're online" : "Remove this item";
-    TextView detailText = Ui.text(activity, detail, 12, p.muted, false);
-    detailText.setPadding(0, dp(4), 0, 0);
-    info.addView(detailText);
-    if (v != null && v.pricePaise > 0) {
-      TextView price = Ui.text(activity, Storefront.rupees((long) v.pricePaise * line.quantity), 15, p.ink, true);
-      price.setPadding(0, dp(6), 0, 0);
-      info.addView(price);
-    }
-    LinearLayout stepper = Ui.row(activity);
-    stepper.setPadding(0, dp(10), 0, 0);
-    stepper.addView(step("−", "Remove one", line.quantity > 1,
-        () -> { Storefront.setQuantity(bag, line.variantId, line.quantity - 1); saveBag(); redraw.run(); }));
-    TextView qty = Ui.text(activity, String.valueOf(line.quantity), 15, p.ink, true);
-    qty.setGravity(Gravity.CENTER);
-    qty.setMinWidth(dp(36));
-    stepper.addView(qty);
-    stepper.addView(step("+", "Add one", line.quantity < Storefront.MAX_QUANTITY,
-        () -> { Storefront.setQuantity(bag, line.variantId, line.quantity + 1); saveBag(); redraw.run(); }));
-    info.addView(stepper);
-    row.addView(info, Ui.weight(1));
-
-    FrameLayout remove = Ui.iconButton(activity, p, "trash", 36, p.surface2, p.ink,
-        () -> { Storefront.setQuantity(bag, line.variantId, 0); saveBag(); redraw.run(); });
-    remove.setContentDescription("Remove " + title);
-    row.addView(remove);
-    return row;
-  }
-
-  private TextView step(String label, String description, boolean on, Runnable action) {
-    TextView b = Ui.text(activity, label, 18, on ? p.ink : p.line, true);
-    b.setGravity(Gravity.CENTER);
-    b.setBackground(Ui.outline(p.surface, p.line, Math.max(1, dp(1)), dp(16)));
-    b.setLayoutParams(new LayoutParams(dp(32), dp(32)));
-    b.setContentDescription(description);
-    b.setEnabled(on);
-    if (on) b.setOnClickListener(x -> action.run());
-    return b;
-  }
-
-  private View sum(String label, String value, boolean strong) {
-    LinearLayout r = Ui.row(activity);
-    r.setPadding(0, dp(strong ? 12 : 10), 0, 0);
-    r.addView(Ui.text(activity, label, strong ? 17 : 14, strong ? p.ink : p.muted, strong), Ui.weight(1));
-    r.addView(Ui.text(activity, value, strong ? 17 : 14, p.ink, true));
-    return r;
-  }
-
-  /** Lines the website can check out: everything when offline, otherwise only options still in the catalog. */
-  private List<Storefront.Line> checkoutLines() {
-    List<Storefront.Line> out = new ArrayList<>();
-    for (Storefront.Line line : bag) {
-      Storefront.Variant v = catalog == null ? null : catalog.variant(line.variantId);
-      if (catalog == null || v != null && v.pricePaise > 0) out.add(line);
-    }
-    return out;
+    activity.startActivity(new Intent(activity, StoreCheckoutActivity.class));
   }
 
   // ---- Footer, links and small helpers ----
@@ -642,6 +527,15 @@ public final class StoreView extends LinearLayout {
     } catch (ActivityNotFoundException none) {
       Toast.makeText(activity, "Install a web browser to open " + url, Toast.LENGTH_LONG).show();
     }
+  }
+
+  @Override protected void onWindowVisibilityChanged(int visibility) {
+    super.onWindowVisibilityChanged(visibility);
+    if (visibility == VISIBLE && bag != null && badge != null) reloadBag();
+  }
+
+  private void reloadBag() {
+    bag.clear();bag.addAll(Storefront.parse(activity.getSharedPreferences(PREFS,0).getString(BAG,"")));refreshBadge();
   }
 
   private void saveBag() {

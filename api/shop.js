@@ -1,8 +1,9 @@
 import { guardRequest, rateLimit } from '../server/security.js';
 import { randomUUID } from 'node:crypto';
-import { db, verifiedMember, bodyOf, uuid, HttpError } from '../server/auth.js';
+import { db, bodyOf, uuid, HttpError } from '../server/auth.js';
 import { configured, keyId, razorpay, validCheckoutSignature } from '../server/razorpay.js';
 import { reconcile, recoverGatewayOrder } from '../server/shop-orders.js';
+import { verifiedShopMember } from '../server/player-access.js';
 
 const shippingFee = () => {
   const value = process.env.MERCH_SHIPPING_PAISE;
@@ -30,7 +31,7 @@ export default async function handler(req, res) {
         publishableKey: process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY });
     }
     if (!['GET','POST'].includes(req.method)) { res.setHeader('Allow','GET, POST'); throw new HttpError(405,'Method not allowed'); }
-    const user = await verifiedMember(req);
+    const user = await verifiedShopMember(req);
     await rateLimit(res,req.method==='GET'?'shop:account-read':'shop:account-write',user.id,req.method==='GET'?60:15);
     if (req.method === 'GET') {
       if (req.query.order) {
@@ -75,7 +76,9 @@ export default async function handler(req, res) {
     const address = body.shipping;
     if (!address || ['name','address','city','state'].some(k => typeof address[k] !== 'string' || address[k].trim().length < 2 || address[k].length > 250)
         || !/^[1-9][0-9]{5}$/.test(address.pincode || '')) throw new HttpError(400,'Complete the Indian delivery address and six-digit PIN code');
+    if(address.phone!==undefined&&!/^[6-9][0-9]{9}$/.test(address.phone))throw new HttpError(400,'Enter a valid Indian delivery mobile number');
     const shipping = { name: address.name.trim(), address: address.address.trim(), city: address.city.trim(),
+      ...(address.phone?{phone:address.phone}:{}),
       state: address.state.trim(), pincode: address.pincode, country: 'IN', email: user.email };
     const rows = await sql`SELECT * FROM boundary_reserve_shop_order(${randomUUID()}::uuid,${user.id},
       ${body.requestId}::uuid,${JSON.stringify(body.items)}::jsonb,${JSON.stringify(shipping)}::jsonb,${shippingFee()})`;

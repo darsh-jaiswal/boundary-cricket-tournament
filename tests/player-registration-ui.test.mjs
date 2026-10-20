@@ -28,7 +28,7 @@ async function screen({profile,register}={}){
   return {node,clerk,requests,onChange,submit:()=>node('#register').onsubmit({preventDefault(){},currentTarget:node('#register')})};
 }
 
-test('registration waits for saved-profile loading and locks an existing username',async()=>{
+test('registration waits for saved-profile loading and allows editing an existing username',async()=>{
   let resolve;
   const profile=new Promise(r=>{resolve=r;});
   const ui=await screen({profile});
@@ -36,32 +36,32 @@ test('registration waits for saved-profile loading and locks an existing usernam
   await ui.submit();assert.equal(ui.requests.filter(r=>r.action==='register').length,0);
   resolve({ok:true,json:async()=>({id:'user_test',name:'Darsh',username:'darsh_11'})});
   await flush();
-  assert.equal(ui.node('#register').elements.username.readOnly,true);
-  assert.equal(ui.node('#save').textContent,'Save display name');
-  assert.match(ui.node('#form-status').textContent,/already registered as @darsh_11/);
+  assert.notEqual(ui.node('#register').elements.username.readOnly,true);
+  assert.equal(ui.node('#save').textContent,'Save profile');
+  assert.match(ui.node('#status').textContent,/teammates find you/);
 });
 
-test('new registration shows pending then visible success and locks the chosen handle',async()=>{
+test('new registration shows pending then visible success and preserves the chosen handle',async()=>{
   let resolve;
   const pending=new Promise(r=>{resolve=r;});
   const ui=await screen({register:()=>pending});await flush();
   ui.node('#register').elements.name.value='Darsh';ui.node('#register').elements.username.value='darsh_11';
   const saving=ui.submit();await flush();
-  assert.equal(ui.node('#save').textContent,'Saving...');
+  assert.equal(ui.node('#save').textContent,'Continue');
   ui.onChange(ui.clerk);assert.equal(ui.node('#save').disabled,true);
   resolve({ok:true,json:async()=>({id:'user_test',name:'Darsh',username:'darsh_11'})});await saving;
-  assert.match(ui.node('#form-status').textContent,/Registration complete!/);
-  assert.equal(ui.node('#register').elements.username.readOnly,true);
-  assert.equal(ui.node('#save').textContent,'Save display name');
+  assert.match(ui.node('#status').textContent,/Profile saved/);
+  assert.notEqual(ui.node('#register').elements.username.readOnly,true);
+  assert.equal(ui.node('#save').textContent,'Continue');
 });
 
-test('profile updates reuse permanent username and display API errors beside the button',async()=>{
+test('profile updates submit the edited username and display API errors beside the button',async()=>{
   const ui=await screen({profile:{ok:true,json:async()=>({id:'user_test',name:'Darsh',username:'darsh_11'})},
     register:async()=>({ok:false,json:async()=>({error:'Please retry later'})})});await flush();
   ui.node('#register').elements.username.value='tampered';
   await ui.submit();
-  assert.equal(ui.requests.at(-1).username,'darsh_11');
-  assert.equal(ui.node('#form-status').textContent,'Please retry later');
+  assert.equal(ui.requests.at(-1).username,'tampered');
+  assert.equal(ui.node('#status').textContent,'Please retry later');
   assert.equal(ui.node('#save').disabled,false);
 });
 
@@ -73,5 +73,5 @@ test('signing out during registration cannot restore the previous player profile
   resolve({ok:true,json:async()=>({id:'user_test',name:'Darsh',username:'darsh_11'})});await saving;
   assert.equal(ui.node('#register').elements.username.value,'');
   assert.equal(ui.node('#share').hidden,true);
-  assert.equal(ui.node('#save').disabled,true);
+  assert.equal(ui.node('#register').hidden,true);
 });

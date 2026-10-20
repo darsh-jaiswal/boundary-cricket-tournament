@@ -13,8 +13,8 @@ $('#join').onclick=async()=>{
   try{
     const result=await api('/api/teams',{action:'join',invite});
     if(attempt!==revision||clerk.user?.id!==id)return;
-    $('#result').textContent=result.status==='accepted'?'Your request was accepted. The organizer can add your account to the saved squad.':'Request sent. Ask the organizer to open Join requests in this team and add you.';
-    $('#join').textContent='Request sent';
+    $('#result').textContent=result.status==='accepted'?'You have joined this team. Your player account is saved in the squad.':'Your request is awaiting the organizer.';
+    $('#join').textContent='Joined';
   }catch(error){if(attempt===revision){message(error.message,true);$('#join').disabled=false;}}
   finally{busy=false;}
 };
@@ -23,15 +23,15 @@ try{
   const team=await api('/api/teams?invite='+invite);$('#team-name').textContent='Join '+team.teamName;
   const config=await api('/api/players?config=1');
   await account(config.publishableKey,$('#account'),async value=>{
-    clerk=value;const attempt=++revision;busy=false;$('#join').disabled=true;$('#join').textContent='Request to join';$('#result').textContent='';$('#register').hidden=true;
-    if(!verifiedGoogle(clerk)){message('Continue with Google to request a place in this team.');return;}
+    clerk=value;const attempt=++revision;busy=false;$('#join').disabled=true;$('#join').textContent='Join team';$('#result').textContent='';$('#register').hidden=true;
+    if(!verifiedGoogle(clerk)){message('Sign in with Google to join this team.');return;}
     const id=clerk.user.id;message('Checking your player registration…');
     try{
       const player=await api('/api/players',{action:'me'});
       if(attempt!==revision||clerk.user?.id!==id)return;
       if(!player.username){
         $('#register').href='/player.html?returnTo='+encodeURIComponent('/join.html?invite='+invite);
-        $('#register').hidden=false;message('Choose your player name and permanent @username first.');return;
+        $('#register').hidden=false;message('Choose your display name and unique @username first.');return;
       }
       message('Ready as @'+player.username+'.');$('#join').disabled=false;
     }catch(error){if(attempt===revision)message(error.message,true);}

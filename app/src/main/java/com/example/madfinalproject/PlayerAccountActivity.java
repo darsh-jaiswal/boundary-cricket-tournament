@@ -29,6 +29,7 @@ public final class PlayerAccountActivity extends AppCompatActivity {
     @Override public void run() {
       if (!resumed) return;
       if (!busy && !PlayerAccount.linked(PlayerAccountActivity.this)
+          && getSharedPreferences("boundary-account", 0).getString("pendingId", "").isEmpty()
           && !getSharedPreferences("boundary-account", 0).getString("token", "").isEmpty()) check();
       main.postDelayed(this, 2000);
     }
@@ -68,15 +69,44 @@ public final class PlayerAccountActivity extends AppCompatActivity {
         catch (Exception offline) { android.util.Log.w("BoundaryLogout", "Remote revocation pending"); } });
     });
     updateAccountUi();
-    if (state == null && getIntent().getBooleanExtra("autoBegin", false)) begin();
+    if (getIntent().getData() != null) receiveSignIn(getIntent());
+    else if (state == null && getIntent().getBooleanExtra("autoBegin", false)) begin();
+  }
+  @Override protected void onNewIntent(Intent intent) {
+    super.onNewIntent(intent); setIntent(intent); receiveSignIn(intent);
+  }
+  private void receiveSignIn(Intent intent) {
+    Uri uri = intent.getData();
+    if (uri == null || !"boundary".equals(uri.getScheme()) || !"signin".equals(uri.getHost())) return;
+    String id = uri.getQueryParameter("id"), code = uri.getQueryParameter("code");
+    android.content.SharedPreferences prefs = getSharedPreferences("boundary-account", 0);
+    if (id == null || !id.equals(prefs.getString("pendingId", "")) || code == null || !code.matches("[a-f0-9]{64}")) {
+      status.setText("This sign-in belongs to a different request. Start sign-in from this app."); return;
+    }
+    call(() -> {
+      long revision = PlayerAccount.sessionRevision(this);
+      JSONObject result = PlayerAccount.request(this, new JSONObject().put("action", "exchange").put("id", id).put("code", code));
+      synchronized (PlayerAccount.class) {
+        if (revision != PlayerAccount.sessionRevision(this)) return;
+        prefs.edit().putBoolean("linked", true).putString("id", result.getString("id"))
+            .putString("name", result.getString("name")).putString("username", result.optString("username"))
+            .remove("pendingId").remove("linkUrl").apply();
+        getSharedPreferences("boundary-session", 0).edit().putBoolean("signedOut", false).putBoolean("guest", false).apply();
+      }
+      runOnUiThread(() -> {
+        if (isFinishing() || isDestroyed()) return;
+        startActivity(new Intent(this, MainActivity.class).addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP));
+        finish();
+      });
+    });
   }
   private void updateAccountUi() {
     android.content.SharedPreferences prefs = getSharedPreferences("boundary-account", 0);
     boolean linked = PlayerAccount.linked(this), pending = !prefs.getString("token", "").isEmpty();
     String username = prefs.getString("username", "");
-    status.setText(linked ? "Linked as " + prefs.getString("name", "Player") + (username.isEmpty() ? "." : " · @" + username)
-        : pending ? "Finish Google registration in your browser, then return here. Your account link refreshes automatically."
-        : "Connect your Google account to find registered players and start matches.");
+    status.setText(linked ? "Signed in as " + prefs.getString("name", "Player") + (username.isEmpty() ? "." : " · @" + username)
+        : pending ? "Complete sign-in in the Clerk portal. Boundary opens when your profile is ready."
+        : "Sign in with Google to play, manage teams and score matches.");
     signIn.setText(linked ? "Manage username / Google account" : pending ? "Continue Google registration" : "Continue with Google");
     signIn.setVisibility(linked ? android.view.View.VISIBLE : android.view.View.GONE);
     googleSignIn.setVisibility(linked ? android.view.View.GONE : android.view.View.VISIBLE);
@@ -87,7 +117,8 @@ public final class PlayerAccountActivity extends AppCompatActivity {
   @Override protected void onResume() {
     super.onResume();
     resumed = true; main.post(poll);
-    if (!busy && !getSharedPreferences("boundary-account", 0).getString("token", "").isEmpty()) check();
+    if (!busy && getSharedPreferences("boundary-account", 0).getString("pendingId", "").isEmpty()
+        && !getSharedPreferences("boundary-account", 0).getString("token", "").isEmpty()) check();
   }
   @Override protected void onPause() { resumed = false; main.removeCallbacks(poll); super.onPause(); }
   private void invite() {
@@ -103,19 +134,21 @@ public final class PlayerAccountActivity extends AppCompatActivity {
     android.content.SharedPreferences prefs = getSharedPreferences("boundary-account", 0);
     if (PlayerAccount.linked(this)) { startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(PlayerAccount.ORIGIN + "/player.html"))); return; }
     String pendingUrl = prefs.getString("linkUrl", "");
+    if (!prefs.getString("pendingId", "").isEmpty() && prefs.getLong("pendingExpires", 0) < System.currentTimeMillis()) {
+      prefs.edit().clear().apply(); pendingUrl = "";
+    }
     if (!pendingUrl.isEmpty()) { startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(pendingUrl))); return; }
     call(() -> {
     long revision = PlayerAccount.sessionRevision(this);
-    JSONObject result = PlayerAccount.request(this, new JSONObject().put("action", "begin"));
+    JSONObject result = PlayerAccount.request(this, new JSONObject().put("action", "begin").put("version", 2));
     synchronized (PlayerAccount.class) {
     if (revision != PlayerAccount.sessionRevision(this)) return;
-    getSharedPreferences("boundary-account", 0).edit().putString("token", result.getString("token")).putString("linkUrl", result.getString("url")).putBoolean("linked", false).apply();
+    getSharedPreferences("boundary-account", 0).edit().putString("token", result.getString("token")).putString("pendingId", result.getString("id")).putLong("pendingExpires", System.currentTimeMillis() + 9 * 60_000L).putString("linkUrl", result.getString("url")).putBoolean("linked", false).apply();
     }
     runOnUiThread(() -> {
       if (isFinishing() || isDestroyed()) return;
       updateAccountUi();
-      status.setText("Device request " + result.optString("id").substring(0, 8).toUpperCase(java.util.Locale.ROOT)
-          + ". Finish Google registration and approve this device in the browser. Then return here.");
+      status.setText("Opening Clerk sign-in…");
       startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(result.optString("url"))));
     });
   }); }

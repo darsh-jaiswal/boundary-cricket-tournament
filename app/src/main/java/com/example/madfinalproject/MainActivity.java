@@ -79,7 +79,8 @@ public class MainActivity extends AppCompatActivity {
     super.onResume();
     updates.start();
     boolean linked = PlayerAccount.linked(this), guest = getSharedPreferences("boundary-session", 0).getBoolean("guest", false);
-    if (linked != renderedLinked || guest != renderedGuest) draw();
+    if (linked && !renderedLinked && "Spectator".equals(role)) { role="Organizer";getPreferences(0).edit().putString("role",role).apply(); }
+    if (linked != renderedLinked || guest != renderedGuest || "Store".equals(page)) draw();
     logoutUiVisible = true;
     completePendingLogout();
     retryDeviceRevocations();
@@ -236,7 +237,7 @@ public class MainActivity extends AppCompatActivity {
     ViewCompat.requestApplyInsets(root);
     renderedLinked = PlayerAccount.linked(this);
     renderedGuest = getSharedPreferences("boundary-session", 0).getBoolean("guest", false);
-    if (!renderedLinked && !renderedGuest) {
+    if (!renderedLinked) {
       root.addView(updates.createBanner());
       welcome();
       return;
@@ -327,7 +328,7 @@ public class MainActivity extends AppCompatActivity {
     boolean signedOut = getSharedPreferences("boundary-session", 0).getBoolean("signedOut", false);
     TextView title = Ui.text(this, signedOut ? "You're signed out" : "Your cricket starts here", 27, INK, true);
     title.setGravity(Gravity.CENTER); box.addView(title);
-    TextView detail = Ui.text(this, "Continue with Google, choose your permanent @username, and join your team.", 15, MUTED, false);
+    TextView detail = Ui.text(this, "Sign in with Google, choose your display name and unique @username, and join your team.", 15, MUTED, false);
     detail.setGravity(Gravity.CENTER); detail.setPadding(0, dp(12), 0, dp(24)); box.addView(detail);
     box.addView(Ui.googleSignIn(this, () ->
         startActivity(new Intent(this, PlayerAccountActivity.class).putExtra("autoBegin", true))), new LinearLayout.LayoutParams(-1, -2));
@@ -336,12 +337,6 @@ public class MainActivity extends AppCompatActivity {
     LinearLayout links = Ui.row(this);
     links.addView(Ui.chip(this, pal, "Terms", false, () -> openPolicy("/terms.html")));
     links.addView(Ui.chip(this, pal, "Privacy", false, () -> openPolicy("/privacy.html"))); box.addView(links);
-    TextView guest = Ui.text(this, "Explore as a guest", 14, GREEN, true);
-    guest.setMinHeight(dp(48)); guest.setGravity(Gravity.CENTER); guest.setPadding(dp(16), dp(16), dp(16), 0);
-    guest.setOnClickListener(v -> {
-      getSharedPreferences("boundary-session", 0).edit().putBoolean("guest", true).apply();
-      role = "Spectator"; getPreferences(0).edit().putString("role", role).apply(); draw();
-    }); box.addView(guest);
   }
 
   private View plusButton;
@@ -2726,6 +2721,7 @@ public class MainActivity extends AppCompatActivity {
       if (!PlayerAccount.linked(this) || !writable()) return;
       String ownerId = data.getStringExtra("ownerId");
       if (ownerId == null || !ownerId.equals(getSharedPreferences("boundary-account", 0).getString("id", ""))) return;
+      if (data.getBooleanExtra("squadUpdated", false)) { draw(); return; }
       String teamId = getPreferences(0).getString("addingPlayerTeam", "");
       String name = data.getStringExtra("playerName"), accountId = data.getStringExtra("playerId");
       if (name == null || name.isEmpty() || accountId == null || !accountId.startsWith("user_")) return;
