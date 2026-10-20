@@ -21,8 +21,8 @@ android {
         applicationId = "com.example.madfinalproject"
         minSdk = 24
         targetSdk = 36
-        versionCode = 14
-        versionName = "1.0.13"
+        versionCode = 15
+        versionName = "1.0.14"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -67,6 +67,7 @@ android {
 }
 
 dependencies {
+    implementation("com.razorpay:checkout:1.6.41")
     implementation("androidx.swiperefreshlayout:swiperefreshlayout:1.2.0")
     implementation("com.github.pedroSG94.RootEncoder:library:2.8.1")
     implementation("com.alphacephei:vosk-android:0.3.47@aar")

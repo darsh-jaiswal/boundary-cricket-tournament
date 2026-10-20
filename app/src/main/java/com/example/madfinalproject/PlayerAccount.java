@@ -76,6 +76,15 @@ public final class PlayerAccount {
     String token = context.getSharedPreferences("boundary-account", 0).getString("token", "");
     return requestWithToken(context, body, token, "/api/teams");
   }
+  public static JSONObject shopRequest(Context context, JSONObject body) throws Exception {
+    String token = context.getSharedPreferences("boundary-account", 0).getString("token", "");
+    return requestWithToken(context, body, token, "/api/shop");
+  }
+  public static JSONObject shopOrder(Context context, String orderId) throws Exception {
+    if (!orderId.matches("[a-fA-F0-9-]{36}")) throw new IllegalArgumentException("Invalid order");
+    String token = context.getSharedPreferences("boundary-account", 0).getString("token", "");
+    return requestWithToken(context, null, token, "/api/shop?order=" + orderId);
+  }
 
   private static final class PlayerHttpError extends IllegalStateException {
     final int status;

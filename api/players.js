@@ -4,6 +4,7 @@ import { createHash, createHmac, randomBytes, randomUUID } from 'node:crypto';
 import { db, verifiedMember, bodyOf, uuid, HttpError } from '../server/auth.js';
 import { normalizeEmail } from '../server/player-identity.js';
 import { normalizeUsername } from '../server/player-username.js';
+import { signInPortal } from '../server/clerk-portal.js';
 
 const hash = value => createHash('sha256').update(value).digest('hex');
 const emailHash = email => createHmac('sha256',process.env.CLERK_SECRET_KEY).update(email).digest('hex');
@@ -25,10 +26,26 @@ export default async function handler(req,res) {
       await rateLimit(res,'players:begin','ip:'+clientIp(req),10,600);
       const ip=hash(clientIp(req));
       const token=randomBytes(32).toString('hex'),id=randomUUID();
-      const rows=await sql`INSERT INTO boundary_device_accounts(id,token_hash,ip_hash)
-        SELECT ${id},${hash(token)},${ip} WHERE (SELECT count(*) FROM boundary_device_accounts WHERE ip_hash=${ip} AND created>now()-interval '10 minutes')<15 RETURNING id`;
+      const version=body.version===2?2:1;
+      const url=version===2?await signInPortal('/player.html?app='+id):'https://boundary-cricket-tournament.vercel.app/player.html?link='+id;
+      const rows=await sql`INSERT INTO boundary_device_accounts(id,token_hash,ip_hash,login_version)
+        SELECT ${id},${hash(token)},${ip},${version} WHERE (SELECT count(*) FROM boundary_device_accounts WHERE ip_hash=${ip} AND created>now()-interval '10 minutes')<15 RETURNING id`;
       if(!rows.length)throw new HttpError(429,'Too many linking requests. Please wait a few minutes.');
-      return res.status(201).json({id,token,url:'https://boundary-cricket-tournament.vercel.app/player.html?link='+id});
+      return res.status(201).json({id,token,url});
+    }
+    if(body.action==='exchange') {
+      const pending=await device(req);
+      if(!uuid(body.id)||body.id!==pending.id||typeof body.code!=='string'||!/^[a-f0-9]{64}$/.test(body.code))
+        throw new HttpError(400,'Invalid sign-in response. Start again in Boundary.');
+      const rows=await sql`WITH consumed AS (
+        DELETE FROM boundary_app_signin_codes WHERE device_id=${pending.id} AND code_hash=${hash(body.code)}
+          AND expires>now() RETURNING owner_id
+      ) UPDATE boundary_device_accounts SET owner_id=consumed.owner_id,expires=now()+interval '30 days'
+        FROM consumed WHERE id=${pending.id} AND login_version=2 AND boundary_device_accounts.owner_id IS NULL
+        RETURNING boundary_device_accounts.owner_id`;
+      if(!rows.length)throw new HttpError(409,'Sign-in expired or was already used. Please sign in again.');
+      const player=await registeredUser(rows[0].owner_id);
+      return res.status(200).json({status:'linked',id:player.owner_id,name:player.name,username:player.username});
     }
     if(body.action==='lookup'||body.action==='validate') {
       const link=await device(req);if(!link.owner_id)throw new HttpError(401,'Finish linking your player account');
@@ -95,6 +112,18 @@ export default async function handler(req,res) {
     if(body.action==='revoke') {const link=await device(req);await sql`UPDATE boundary_device_accounts SET expires=now() WHERE id=${link.id}`;return res.status(200).json({signedOut:true});}
     const user=await verifiedMember(req);
     await rateLimit(res,'players:account-write',user.id,15);
+    if(body.action==='complete') {
+      await registeredUser(user.id);
+      if(!uuid(body.id))throw new HttpError(400,'Invalid app sign-in');
+      const code=randomBytes(32).toString('hex');
+      const rows=await sql`INSERT INTO boundary_app_signin_codes(device_id,owner_id,code_hash)
+        SELECT id,${user.id},${hash(code)} FROM boundary_device_accounts
+        WHERE id=${body.id} AND login_version=2 AND owner_id IS NULL AND expires>now()
+        ON CONFLICT(device_id) DO UPDATE SET owner_id=excluded.owner_id,code_hash=excluded.code_hash,expires=now()+interval '2 minutes'
+        RETURNING device_id`;
+      if(!rows.length)throw new HttpError(409,'This sign-in expired. Start again in the Boundary app.');
+      return res.status(200).json({code});
+    }
     if(body.action==='me') {
       const rows=await sql`SELECT owner_id AS id,name,username FROM boundary_registered_players WHERE owner_id=${user.id}`;
       return res.status(200).json(rows[0]||{registered:false});
@@ -108,9 +137,8 @@ export default async function handler(req,res) {
       try {
         const saved=await sql`INSERT INTO boundary_registered_players(owner_id,name,username,email_hash,auth_provider,terms_version) VALUES(${user.id},${body.name.trim()},${username},${emailHash(user.email)},'google',${body.termsVersion})
           ON CONFLICT(owner_id) DO UPDATE SET name=excluded.name,username=excluded.username,email_hash=excluded.email_hash,auth_provider=excluded.auth_provider,phone_hash=NULL,terms_version=excluded.terms_version
-          WHERE boundary_registered_players.username IS NULL OR boundary_registered_players.username=excluded.username
           RETURNING owner_id`;
-        if(!saved.length)throw new HttpError(409,'Your username is permanent and cannot be changed. Refresh this page to restore your saved username.');
+        if(!saved.length)throw new HttpError(409,'Could not save your profile. Please retry.');
       } catch(error) { if(error.code==='23505')throw new HttpError(409,'That username or Google email is already registered. Choose another username or use your existing account.');throw error; }
       return res.status(200).json({registered:true,id:user.id,name:body.name.trim(),username});
     }
@@ -118,7 +146,7 @@ export default async function handler(req,res) {
       await registeredUser(user.id);
       if(!uuid(body.link))throw new HttpError(400,'Invalid device link');
       const rows=await sql`UPDATE boundary_device_accounts SET owner_id=${user.id},expires=now()+interval '30 days'
-        WHERE id=${body.link} AND owner_id IS NULL AND expires>now() RETURNING id`;
+        WHERE id=${body.link} AND login_version=1 AND owner_id IS NULL AND expires>now() RETURNING id`;
       if(!rows.length)throw new HttpError(409,'This device link has expired or was already used. Start again in the Android app.');
       return res.status(200).json({linked:true});
     }

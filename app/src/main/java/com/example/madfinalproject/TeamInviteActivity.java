@@ -37,8 +37,8 @@ public final class TeamInviteActivity extends AppCompatActivity {
     status=label(body,"",14,false);status.setAccessibilityLiveRegion(android.view.View.ACCESSIBILITY_LIVE_REGION_POLITE);
     label(body,"Invite players via",18,true);
     LinearLayout invite=card();label(invite,"Team link",20,true);
-    linkText=label(invite,"Your private invitation opens Google sign-in and a request to join this team.",13,false);
-    label(invite,"Share with your players. You approve each request before adding a player to the saved squad.",14,false);
+    linkText=label(invite,"Share a private invitation to this team.",13,false);
+    label(invite,"Players open the link, sign in and tap Join team. Their registered account is added to your squad.",14,false);
     button(invite,"Share via WhatsApp",()->withLink(()->share(true)));
     LinearLayout controls=Ui.row(this);
     controls.addView(Ui.chip(this,palette,"Share",false,()->withLink(()->share(false))),Ui.weight(1));
@@ -46,11 +46,11 @@ public final class TeamInviteActivity extends AppCompatActivity {
     controls.addView(Ui.chip(this,palette,"Team QR",false,()->withLink(this::qr)),Ui.weight(1));invite.addView(controls);
     label(body,"Add an existing player",18,true);
     LinearLayout search=card();label(search,"Search by @username",19,true);
-    label(search,"Use the permanent username they chose after Google sign-in.",13,false);
-    username=new EditText(this);username.setHint("@username, email or player code");username.setSingleLine(true);
+    label(search,"Enter their unique username, check the player, then add them to this team.",13,false);
+    username=new EditText(this);username.setHint("@username");username.setSingleLine(true);
     username.setTextColor(palette.ink);username.setHintTextColor(palette.muted);username.setMinHeight(dp(52));search.addView(username);
     button(search,"Find player",this::find);
-    label(body,"Join requests",20,true);button(body,"Refresh join requests",this::loadRequests);
+    label(body,"Players in this team",20,true);button(body,"Refresh squad",this::loadRequests);
     requests=Ui.column(this);body.addView(requests);
   }
 
@@ -65,8 +65,7 @@ public final class TeamInviteActivity extends AppCompatActivity {
       linkText.setText(link.isEmpty()?"Tap Share, Copy link or Team QR to create an invitation valid for seven days.":link);
       loadRequests();
     }else{
-      owner="";link="";requests.removeAllViews();status.setText("Sign in with Google before managing this team.");
-      requests.addView(Ui.googleSignIn(this,()->startActivity(new Intent(this,PlayerAccountActivity.class).putExtra("autoBegin",true))));
+      owner="";link="";finish();
     }
   }
 
@@ -92,7 +91,7 @@ public final class TeamInviteActivity extends AppCompatActivity {
   }
 
   private void share(boolean whatsapp){
-    String text="Join "+teamName+" on Boundary: "+link+"\nSign in with Google, choose your @username, and tap Request to join.";
+    String text="Join "+teamName+" on Boundary: "+link+"\nSign in with Google, choose your @username, and tap Join team.";
     Intent send=new Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT,text);
     try{if(whatsapp){send.setPackage("com.whatsapp");startActivity(send);}else startActivity(Intent.createChooser(send,"Share team invitation"));}
     catch(ActivityNotFoundException missing){send.setPackage(null);startActivity(Intent.createChooser(send,"Share team invitation"));}
@@ -103,7 +102,7 @@ public final class TeamInviteActivity extends AppCompatActivity {
       LinearLayout box=Ui.column(this);box.setPadding(dp(24),dp(24),dp(24),dp(24));
       ImageView image=new ImageView(this);Bitmap bitmap=ProfileShare.qr(link,dp(240),palette.accent);
       image.setImageBitmap(bitmap);image.setContentDescription("Team invitation QR code for "+teamName);box.addView(image,new LinearLayout.LayoutParams(-1,dp(240)));
-      label(box,"Scan to sign in and request to join "+teamName+".",14,false);
+      label(box,"Scan to sign in and join "+teamName+".",14,false);
       new AlertDialog.Builder(this).setTitle("Team QR / link").setView(box).setPositiveButton("Done",null).setNeutralButton("Copy link",(d,w)->copy()).show();
     }catch(Exception error){status.setText("Could not create the team QR code. Use Copy link instead.");}
   }
@@ -118,12 +117,31 @@ public final class TeamInviteActivity extends AppCompatActivity {
         .setMessage("Add this registered player to "+teamName+"?").setNegativeButton("Cancel",null)
         .setPositiveButton("Add player",(d,w)->{
           if(requested) call(()->PlayerAccount.teamRequest(this,new JSONObject().put("action","accept").put("teamId",teamId).put("playerId",player.optString("id"))),this::finishPlayer);
-          else finishPlayer(player);
+          else call(()->PlayerAccount.teamRequest(this,new JSONObject().put("action","add").put("teamId",teamId).put("playerId",player.optString("id"))),this::finishPlayer);
         }).show();
   }
   private void finishPlayer(JSONObject player){
     if(!PlayerAccount.linked(this)||!owner.equals(getSharedPreferences("boundary-account",0).getString("id","")))return;
-    setResult(RESULT_OK,new Intent().putExtra("playerId",player.optString("id")).putExtra("playerName",player.optString("name")).putExtra("ownerId",owner));finish();
+    savePlayer(player);
+    status.setText(player.optString("name")+" added to "+teamName+".");
+    username.setText(""); loadRequests();
+  }
+  private void savePlayer(JSONObject player){
+    try(com.example.madfinalproject.data.Repository repo=new com.example.madfinalproject.data.Repository(this)){
+      for(com.example.madfinalproject.domain.Cricket.Team team:repo.teams())if(team.id.equals(teamId)){
+        for(com.example.madfinalproject.domain.RegisteredPlayer saved:repo.list("registered-player",com.example.madfinalproject.domain.RegisteredPlayer.class))
+          if(saved.teamId.equals(teamId)&&saved.accountId.equals(player.optString("id")))return;
+        String name=player.optString("name");
+        boolean duplicate=false;for(String existing:team.players)if(existing.equalsIgnoreCase(name))duplicate=true;
+        if(duplicate)name=name+" (@"+player.optString("username")+")";
+        String base=name;int suffix=2;while(team.players.contains(name))name=base+" "+suffix++;
+        team.players.add(name);
+        com.example.madfinalproject.domain.RegisteredPlayer receipt=new com.example.madfinalproject.domain.RegisteredPlayer(teamId,name,player.optString("id"));
+        android.database.sqlite.SQLiteDatabase db=repo.getWritableDatabase();db.beginTransaction();
+        try{repo.save(team);repo.save(receipt.storageId(),"registered-player",receipt);db.setTransactionSuccessful();}finally{db.endTransaction();}
+        setResult(RESULT_OK,new Intent().putExtra("squadUpdated",true).putExtra("ownerId",owner));
+      }
+    }
   }
   private void loadRequests(){ loadRequests(null,false); }
   private void loadRequests(JSONObject before,boolean append){
@@ -132,13 +150,12 @@ public final class TeamInviteActivity extends AppCompatActivity {
       if(!append)requests.removeAllViews();
       if(moreRequests!=null)requests.removeView(moreRequests);
       JSONArray rows=result.optJSONArray("requests");
-      if(rows==null||rows.length()==0){label(requests,"No requests yet. Share your team link to invite players.",14,false);return;}
+      if(rows==null||rows.length()==0){label(requests,"No players added yet. Search a username or share your team link.",14,false);return;}
       for(int i=0;i<rows.length();i++){
         JSONObject row=rows.optJSONObject(i);if(row==null)continue;
         String title=row.optString("name")+" · @"+row.optString("username");
-        button(requests,title+(row.optString("status").equals("accepted")?" · Add to this device":" · Review request"),()->{
-          confirm(row,true);
-        });
+        if(row.optString("status").equals("accepted")){savePlayer(row);label(requests,title+" · Added",15,true);}
+        else button(requests,title+" · Add player",()->confirm(row,true));
       }
       JSONObject next=result.optJSONObject("next");
       if(next!=null)moreRequests=button(requests,"Load more join requests",()->loadRequests(next,true));
@@ -157,7 +174,7 @@ public final class TeamInviteActivity extends AppCompatActivity {
         if(isFinishing()||isDestroyed()||revision!=PlayerAccount.sessionRevision(this)
             ||!user.equals(getSharedPreferences("boundary-account",0).getString("id","")))return;
         if(failure!=null){status.setText(failure.getMessage()==null?"Could not load team invitations. Retry when online.":failure.getMessage());return;}
-        status.setText("");done.accept(value);
+        status.setText("");try{done.accept(value);}catch(Exception saveError){status.setText("Could not save the squad on this device. Free storage and refresh the squad to retry.");}
       });
     });
   }

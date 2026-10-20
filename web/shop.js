@@ -4,7 +4,7 @@ import { photoFor } from './store-catalog.js';
 const $ = selector => document.querySelector(selector);
 const el = (tag, text, className) => { const node=document.createElement(tag);if(text!==undefined)node.textContent=text;if(className)node.className=className;return node; };
 const money = paise => new Intl.NumberFormat('en-IN',{style:'currency',currency:'INR',minimumFractionDigits:paise%100?2:0,maximumFractionDigits:2}).format(paise/100);
-let catalog, clerk, bag=[], busy=false, dialogProduct=null;
+let catalog, clerk, bag=[], busy=false, dialogProduct=null, shippingAddress=null, addressOwner="";
 try { const saved=JSON.parse(localStorage.getItem('boundary-bag') || '[]');if(Array.isArray(saved))bag=saved.filter(i=>typeof i.variantId==='string'&&Number.isInteger(i.quantity)&&i.quantity>0&&i.quantity<=10).slice(0,10); }catch{ /* A corrupt local bag starts empty. Server prices remain authoritative. */ }
 function message(text,error=false,target='#status') { $(target).textContent=text;$(target).classList.toggle('error',error); }
 async function api(method='GET', body, query='') {
@@ -72,6 +72,9 @@ function openProduct(product) {
   for(const v of product.variants){const option=el('option',[v.material,v.size,v.colour].filter(Boolean).join(' · '));option.value=v.id;select.append(option);}
   const first=product.variants.find(v=>v.available&&v.pricePaise>0)||product.variants.find(v=>v.pricePaise>0)||product.variants[0];
   if(first)select.value=first.id;
+  const sizes=$('#size-options');sizes.replaceChildren();
+  for(const variant of product.variants){const button=el('button',variant.size);button.type='button';button.disabled=!variant.available;button.dataset.variant=variant.id;
+    button.onclick=()=>{select.value=variant.id;updateDialog();};sizes.append(button);}
   $('#dialog-title').textContent=product.name;$('#dialog-description').textContent=product.description||'';
   message('',false,'#dialog-note');updateDialog();
   if(!$('#product-dialog').open)$('#product-dialog').showModal();
@@ -83,8 +86,9 @@ function updateDialog() {
   $('#dialog-price').replaceChildren(priceNode(product,v?.pricePaise,false));
   $('#dialog-availability').textContent=!v?'':v.available&&catalog?.salesEnabled?`${v.colour} · In stock`
     :v.available?`${v.colour} · In stock · checkout opens soon`:'Save to your bag — stock confirmation pending';
+  for(const button of $('#size-options').children)button.setAttribute('aria-pressed',String(button.dataset.variant===v?.id));
   const add=$('#dialog-add');add.hidden=false;
-  add.disabled=busy||!v||!Number.isSafeInteger(v.pricePaise)||v.pricePaise<=0;
+  add.disabled=busy||!v?.available||!Number.isSafeInteger(v.pricePaise)||v.pricePaise<=0;$('#dialog-buy').disabled=add.disabled;
   if(v&&!(v.pricePaise>0))message('Price coming soon — this option can’t be added to your bag yet.',false,'#dialog-note');
 }
 function addToBag(p,v) {
@@ -92,10 +96,11 @@ function addToBag(p,v) {
   const line=bag.find(i=>i.variantId===v.id);
   if(line){if(line.quantity>=10){message('You already have ten of this option in your bag.',true,'#dialog-note');return;}line.quantity++;}
   else{if(bag.length>=10){message('Your bag holds up to ten product options.',true,'#dialog-note');return;}bag.push({variantId:v.id,quantity:1});}
-  saveBag();message(p.name+' added to your bag.',false,'#dialog-note');
+  saveBag();message(p.name+' added to your cart.',false,'#dialog-note');return true;
 }
 $('#dialog-variant').onchange=()=>{message('',false,'#dialog-note');updateDialog();};
 $('#dialog-add').onclick=()=>{const product=dialogProduct;if(!product||busy)return;addToBag(product,product.variants.find(v=>v.id===$('#dialog-variant').value));};
+$('#dialog-buy').onclick=()=>{const product=dialogProduct;if(product&&addToBag(product,product.variants.find(v=>v.id===$('#dialog-variant').value))){$('#product-dialog').close();showCart();}};
 $('#product-dialog').onclick=event=>{if(event.target===event.currentTarget)event.currentTarget.close();};
 $('#product-dialog').onclose=()=>{dialogProduct=null;};
 // The Boundary app hands its bag over as ?bag=variantId:qty,... — only priced options from this catalog are accepted.
@@ -114,14 +119,18 @@ function importAppBag() {
   if(incoming.length)saveBag();
   message(incoming.length?'Your bag from the Boundary app is ready'+(skipped?` · ${skipped} item${skipped===1?'':'s'} could not be added`:'')
     :'Items from the Boundary app are no longer available here.',!incoming.length,'#bag-status');
-  $('#bag').scrollIntoView({block:'start'});
+  showCart();
 }
 function renderBag() {
   const count=bag.reduce((n,i)=>n+i.quantity,0);$('#bag-count').textContent=count?String(count):'';$('#bag-count').hidden=!count;
   if(!catalog)return;const target=$('#cart');target.replaceChildren();let total=0,valid=bag.length>0;
   for(const line of bag) {
     const v=variants().find(v=>v.id===line.variantId);const row=el('div',undefined,'cart-row'),description=el('div',undefined,'cart-description');
-    description.append(el('strong',v?.name||'Unavailable item'),el('div',v?`${v.material} · ${v.size}`:'Remove this item','subtle'));
+    description.append(el('strong',v?.name||'Unavailable item'));
+    if(v){const size=el('select');size.setAttribute('aria-label','Size for '+v.name);size.disabled=busy;
+      for(const option of catalog.products.find(p=>p.id===v.productId).variants){const node=el('option',option.size);node.value=option.id;node.disabled=!option.available;size.append(node);}size.value=v.id;
+      size.onchange=()=>{const existing=bag.find(item=>item!==line&&item.variantId===size.value);if(existing){if(existing.quantity+line.quantity>10){size.value=line.variantId;return;}existing.quantity+=line.quantity;bag=bag.filter(item=>item!==line);}else line.variantId=size.value;saveBag();};description.append(size);}
+
     if(v) {total+=v.pricePaise*line.quantity;description.append(el('div',money(v.pricePaise*line.quantity)));}
     if(!v?.available) {valid=false;description.append(el('div','Saved to bag — not reserved; stock confirmation pending','subtle'));}
     const controls=el('div',undefined,'cart-controls'),qty=el('input');qty.type='number';qty.min='1';qty.max='10';qty.value=line.quantity;qty.setAttribute('aria-label','Quantity for '+(v?.name||'item'));qty.disabled=busy;
@@ -130,7 +139,12 @@ function renderBag() {
     row.append(art(v?{id:v.productId,name:v.name}:null),description,controls);target.append(row);
   }
   if(!bag.length)target.append(el('p','Your bag is empty. Choose your kit from the collection.'));
-  const shipping=catalog.shippingPaise;$('#total').textContent=bag.length?`Total ${money(total+(shipping||0))}${shipping!==null?` · includes ${money(shipping)} delivery`:''}`:'';
+  const shipping=catalog.shippingPaise;$('#total').textContent=bag.length?`Total ${money(total+(shipping||0))}`:'';
+  const breakdown=$('#price-breakdown');breakdown.replaceChildren();
+  for(const [title,amount] of [['Items',money(total)],['Delivery fee',shipping===0?'Free':money(shipping||0)],['Total amount',money(total+(shipping||0))]]){const row=el('div',undefined,'price-row');row.append(el('span',title),el('strong',amount));breakdown.append(row);}
+  $('#pay').textContent=shippingAddress?'Pay '+money(total+(shipping||0)):'Add address';$('#pay').formNoValidate=!shippingAddress;
+  $('#saved-address').textContent=shippingAddress?`${shippingAddress.name} - ${shippingAddress.phone}\n${shippingAddress.address}, ${shippingAddress.city}, ${shippingAddress.state} - ${shippingAddress.pincode}`:'Where do we send this?';
+  $('#edit-address').textContent=shippingAddress?'Edit address':'Add address';
   $('#pay').disabled=busy||!valid||!verifiedGoogle(clerk)||!catalog.salesEnabled;
   $('#checkout-status').textContent=!catalog.salesEnabled
     ?'Checkout is paused while the store confirms stock, payment setup and delivery details. Items in your bag are saved, not reserved.'
@@ -180,19 +194,27 @@ async function loadOrders() {
 }
 $('#refresh-orders').onclick=loadOrders;
 $('#checkout').onsubmit=async event=>{
-  event.preventDefault();if(busy||!verifiedGoogle(clerk)||!catalog?.salesEnabled||!bag.length)return;busy=true;renderBag();updateDialog();
+  event.preventDefault();if(busy||!verifiedGoogle(clerk)||!catalog?.salesEnabled||!bag.length)return;if(!shippingAddress){openAddress();return;}busy=true;renderBag();updateDialog();
   try {
     let requestId=sessionStorage.getItem('boundary-checkout-request');if(!requestId){requestId=crypto.randomUUID();sessionStorage.setItem('boundary-checkout-request',requestId);}
-    const order=await api('POST',{action:'checkout',termsVersion:'2026-10-19',requestId,items:bag,shipping:Object.fromEntries(new FormData(event.currentTarget))});
+    const order=await api('POST',{action:'checkout',termsVersion:'2026-10-19',requestId,items:bag,shipping:shippingAddress});
     await loadOrders();await openPayment(order);
   }catch(error){message(error.message,true,'#payment-status');}
   finally{busy=false;renderBag();updateDialog();}
 };
+function showCart(){for(const selector of ['.hero','.strip','#catalog'])$(selector).hidden=true;$('#bag').hidden=false;location.hash='bag';window.scrollTo(0,0);}
+function showCollection(){for(const selector of ['.hero','.strip','#catalog'])$(selector).hidden=false;$('#bag').hidden=true;history.replaceState(null,'',location.pathname);}
+function openAddress(){const form=$('#address-form');if(shippingAddress)for(const [key,value] of Object.entries(shippingAddress))if(form.elements[key])form.elements[key].value=value;if(!form.elements.name.value)form.elements.name.value=clerk?.user?.fullName||'';$('#address-dialog').showModal();}
+$('#edit-address').onclick=openAddress;$('#address-close').onclick=()=>$('#address-dialog').close();$('#cart-back').onclick=showCollection;
+document.querySelector('.bag-link').onclick=event=>{event.preventDefault();showCart();};
+$('#address-form').onsubmit=event=>{event.preventDefault();shippingAddress=Object.fromEntries(new FormData(event.currentTarget));shippingAddress.address=[shippingAddress.house,shippingAddress.locality,shippingAddress.landmark].filter(Boolean).join(', ');sessionStorage.setItem('boundary-address-'+addressOwner,JSON.stringify(shippingAddress));sessionStorage.removeItem('boundary-checkout-request');$('#address-dialog').close();renderBag();};
 renderBag();
 try {
   catalog=await api();renderShelves();importAppBag();renderBag();
   message(catalog.salesEnabled?'Choose your kit. Prices and availability are checked again at checkout.':'Collection preview — prices, stock and delivery are being confirmed. You can save items to your bag. Checkout opens after stock and delivery are confirmed.');
   $('#delivery-note').textContent=catalog.dispatchDays?`Dispatch estimate: ${catalog.dispatchDays} days. For delivery, exchanges or refunds contact store support.`:'Delivery and exchange terms will appear before checkout opens.';
   if(catalog.supportEmail){const link=el('a',catalog.supportEmail);link.href='mailto:'+catalog.supportEmail;$('#support').append('Store support: ',link);}
-  await account(catalog.publishableKey,$('#account'),value=>{clerk=value;renderBag();loadOrders();});
+  await account(catalog.publishableKey,$('#account'),value=>{clerk=value;
+    if(addressOwner!==clerk.user?.id){addressOwner=clerk.user?.id||'';shippingAddress=null;try{shippingAddress=JSON.parse(sessionStorage.getItem('boundary-address-'+addressOwner)||'null');}catch{}$('#address-form').reset();}
+    renderBag();loadOrders();});
 }catch(error){if(!catalog)renderShelves();message(error.message,true);}

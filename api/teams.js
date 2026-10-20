@@ -26,15 +26,15 @@ export function teamHandler({database=db,member=verifiedMember,deviceAccount=dev
         await registered(user.id);
         await limit(res,'teams:join',user.id,10);
         // One statement checks expiry and creates an idempotent request; clients never choose owner/team IDs.
-        const rows=await sql`INSERT INTO boundary_team_join_requests(owner_id,team_id,player_id)
-          SELECT owner_id,team_id,${user.id} FROM boundary_team_invitations
+        const rows=await sql`INSERT INTO boundary_team_join_requests(owner_id,team_id,player_id,status)
+          SELECT owner_id,team_id,${user.id},'accepted' FROM boundary_team_invitations
           WHERE token_hash=${hash(body.invite)} AND expires>now()
-          ON CONFLICT(owner_id,team_id,player_id) DO UPDATE SET player_id=excluded.player_id
+          ON CONFLICT(owner_id,team_id,player_id) DO UPDATE SET status='accepted'
           RETURNING status`;
         if(!rows.length)throw new HttpError(404,'This invitation has expired. Ask the organizer for a new link.');
         return res.status(200).json(rows[0]);
       }
-      if(!['create','requests','accept'].includes(body.action))throw new HttpError(400,'Unknown action');
+      if(!['create','requests','accept','add'].includes(body.action))throw new HttpError(400,'Unknown action');
       if(!uuid(body.teamId))throw new HttpError(400,'Choose a saved team');
       const account=await deviceAccount(req);
       if(!account.owner_id)throw new HttpError(401,'Finish linking your Google player account');
@@ -64,6 +64,12 @@ export function teamHandler({database=db,member=verifiedMember,deviceAccount=dev
       }
       if(typeof body.playerId!=='string'||!/^user_[a-zA-Z0-9]+$/.test(body.playerId))throw new HttpError(400,'Invalid player');
       const player=await registered(body.playerId);
+      if(body.action==='add') {
+        await sql`INSERT INTO boundary_team_join_requests(owner_id,team_id,player_id,status)
+          VALUES(${account.owner_id},${body.teamId},${body.playerId},'accepted')
+          ON CONFLICT(owner_id,team_id,player_id) DO UPDATE SET status='accepted'`;
+        return res.status(200).json({id:player.owner_id,name:player.name,username:player.username,verified:true});
+      }
       const rows=await sql`UPDATE boundary_team_join_requests SET status='accepted'
         WHERE owner_id=${account.owner_id} AND team_id=${body.teamId} AND player_id=${body.playerId} RETURNING player_id`;
       if(!rows.length)throw new HttpError(404,'No join request found for this team');
