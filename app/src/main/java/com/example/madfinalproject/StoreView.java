@@ -52,6 +52,8 @@ public final class StoreView extends LinearLayout {
   private final List<Storefront.Line> bag;
   private Storefront.Catalog catalog;
   private boolean loading;
+  private boolean fetching, failed;
+  private Runnable refreshed = () -> {};
 
   public StoreView(Activity activity, Ui.Palette palette) {
     super(activity);
@@ -107,6 +109,7 @@ public final class StoreView extends LinearLayout {
   // ---- Catalog ----
 
   private void load() {
+    if (fetching) return;
     Storefront.Catalog known;
     boolean fresh;
     synchronized (StoreView.class) {
@@ -116,7 +119,8 @@ public final class StoreView extends LinearLayout {
     catalog = known;
     loading = known == null;
     render();
-    if (fresh) return;
+    if (fresh) { finishRefresh(); return; }
+    fetching = true;
     Handler main = new Handler(Looper.getMainLooper());
     new Thread(() -> {
       Storefront.Catalog result = null;
@@ -131,12 +135,23 @@ public final class StoreView extends LinearLayout {
       }
       Storefront.Catalog done = result;
       main.post(() -> {
+        fetching = false;
+        failed = done == null;
         loading = false;
         if (done != null) catalog = done;
         render();
+        finishRefresh();
       });
     }, "boundary-store-catalog").start();
   }
+
+  public void refresh(Runnable complete) {
+    refreshed = complete;
+    synchronized (StoreView.class) { cachedAt = 0; }
+    load();
+  }
+
+  private void finishRefresh() { Runnable done = refreshed; refreshed = () -> {}; done.run(); }
 
   private static JSONObject fetch() throws Exception {
     HttpURLConnection connection = (HttpURLConnection) new URL(PlayerAccount.ORIGIN + "/api/shop").openConnection();
@@ -189,6 +204,7 @@ public final class StoreView extends LinearLayout {
     shelves.removeAllViews();
     if (loading) status.setText("Loading the collection…");
     else if (catalog == null) status.setText("Couldn't reach the store. Tap Retry to load the collection.");
+    else if (failed) status.setText("Couldn't refresh · Showing the saved collection. Pull down to retry.");
     else status.setText(catalog.salesEnabled ? "Checkout open · pay securely with Razorpay"
         : "Preview · checkout opens once stock is confirmed");
     if (!loading && catalog == null) {

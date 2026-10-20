@@ -15,22 +15,80 @@ public final class PlayerAccount {
   public static boolean linked(Context context) {
     return context.getSharedPreferences("boundary-account", 0).getBoolean("linked", false);
   }
-  /** Call off the UI thread. Keep the session on network failure so revocation can be retried. */
+  interface Revoker { void revoke(String token) throws Exception; }
+
+  /** End local access immediately; retain only a private revocation queue for offline retry. */
+  public static synchronized void disconnectLocally(Context context) {
+    new ProfileStore(context); // Bind a legacy local profile before its linked account is cleared.
+    android.content.SharedPreferences account = context.getSharedPreferences("boundary-account", 0);
+    String token = account.getString("token", "");
+    android.content.SharedPreferences pending = context.getSharedPreferences("boundary-revocations", 0);
+    java.util.Set<String> tokens = new java.util.HashSet<>(pending.getStringSet("tokens", java.util.Collections.emptySet()));
+    if (!token.isEmpty()) {
+      tokens.add(token);
+      if (!pending.edit().putStringSet("tokens", tokens).commit()) throw new IllegalStateException("Could not save sign-out. Please retry.");
+    }
+    // The queue is never used for authentication. Save it before discarding the active credential.
+    if (!account.edit().clear().commit()) throw new IllegalStateException("Could not clear this session. Please retry.");
+    context.getSharedPreferences("boundary-session", 0).edit().putBoolean("signedOut", true)
+        .putLong("revision", sessionRevision(context) + 1).commit();
+  }
+
+  public static long sessionRevision(Context context) {
+    return context.getSharedPreferences("boundary-session", 0).getLong("revision", 0);
+  }
+
+  /** Call off the UI thread. A failed remote revoke never restores local access. */
   public static void signOutDevice(Context context) throws Exception {
-    android.content.SharedPreferences prefs = context.getSharedPreferences("boundary-account", 0);
-    if (!prefs.getString("token", "").isEmpty()) {
-      try { request(context, new JSONObject().put("action", "revoke")); }
-      catch (Exception error) {
-        // An expired/invalid session is already unusable; request clears it on HTTP 401.
-        if (!prefs.getString("token", "").isEmpty()) throw error;
+    disconnectLocally(context);
+    retryRevocations(context);
+  }
+
+  public static void retryRevocations(Context context) throws Exception {
+    retryRevocations(context, token -> {
+      try { requestWithToken(context, new JSONObject().put("action", "revoke"), token); }
+      catch (PlayerHttpError error) { if (error.status != 401) throw error; }
+    });
+  }
+
+  static void retryRevocations(Context context, Revoker revoker) throws Exception {
+    android.content.SharedPreferences pending = context.getSharedPreferences("boundary-revocations", 0);
+    java.util.Set<String> tokens;
+    synchronized (PlayerAccount.class) {
+      tokens = new java.util.HashSet<>(pending.getStringSet("tokens", java.util.Collections.emptySet()));
+    }
+    for (String token : tokens) {
+      revoker.revoke(token);
+      synchronized (PlayerAccount.class) {
+        java.util.Set<String> remaining = new java.util.HashSet<>(pending.getStringSet("tokens", java.util.Collections.emptySet()));
+        remaining.remove(token);
+        if (!pending.edit().putStringSet("tokens", remaining).commit()) throw new IllegalStateException("Could not save revocation status");
       }
     }
-    prefs.edit().clear().apply();
   }
+
   public static JSONObject request(Context context, JSONObject body) throws Exception {
-    HttpURLConnection connection = (HttpURLConnection) new URL(ORIGIN + "/api/players").openConnection();
-    connection.setConnectTimeout(15000); connection.setReadTimeout(25000);
     String token = context.getSharedPreferences("boundary-account", 0).getString("token", "");
+    return requestWithToken(context, body, token);
+  }
+
+  public static JSONObject teamRequest(Context context, JSONObject body) throws Exception {
+    String token = context.getSharedPreferences("boundary-account", 0).getString("token", "");
+    return requestWithToken(context, body, token, "/api/teams");
+  }
+
+  private static final class PlayerHttpError extends IllegalStateException {
+    final int status;
+    PlayerHttpError(int status, String message) { super(message); this.status = status; }
+  }
+
+  private static JSONObject requestWithToken(Context context, JSONObject body, String token) throws Exception {
+    return requestWithToken(context, body, token, "/api/players");
+  }
+
+  private static JSONObject requestWithToken(Context context, JSONObject body, String token, String endpoint) throws Exception {
+    HttpURLConnection connection = (HttpURLConnection) new URL(ORIGIN + endpoint).openConnection();
+    connection.setConnectTimeout(15000); connection.setReadTimeout(25000);
     if (!token.isEmpty()) connection.setRequestProperty("Authorization", "BoundaryDevice " + token);
     try {
       if (body != null) {
@@ -48,8 +106,11 @@ public final class PlayerAccount {
       }
       JSONObject result = new JSONObject(bytes.toString("UTF-8"));
       if (status >= 400) {
-        if (status == 401) context.getSharedPreferences("boundary-account", 0).edit().clear().apply();
-        throw new IllegalStateException(result.optString("error", "Player service is unavailable"));
+        if (status == 401) synchronized (PlayerAccount.class) {
+          android.content.SharedPreferences current = context.getSharedPreferences("boundary-account", 0);
+          if (!token.isEmpty() && token.equals(current.getString("token", ""))) current.edit().clear().apply();
+        }
+        throw new PlayerHttpError(status, result.optString("error", "Player service is unavailable"));
       }
       return result;
     } finally { connection.disconnect(); }

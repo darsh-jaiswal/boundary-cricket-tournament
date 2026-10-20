@@ -22,37 +22,70 @@ import java.util.Set;
 public final class ProfileStore {
   private static final String PREFS = "boundary-profile";
   private final Context context;
-  private final SharedPreferences prefs;
 
   public ProfileStore(Context context) {
     this.context = context.getApplicationContext();
-    prefs = this.context.getSharedPreferences(PREFS, 0);
-    if (prefs.contains("phone")) prefs.edit().remove("phone").apply();
+    if (prefs().contains("phone")) prefs().edit().remove("phone").apply();
   }
 
+  // Legacy device profiles belong to the first linked account. Subsequent
+  // accounts get separate preferences and photo files; switching users never
+  // exposes the previous user's claims or personal details.
+  private String profileKey() {
+    String id = accountId();
+    SharedPreferences legacy = context.getSharedPreferences(PREFS, 0);
+    String owner = legacy.getString("accountOwner", "");
+    if (owner.isEmpty() && !id.isEmpty() && PlayerAccount.linked(context)) {
+      legacy.edit().putString("accountOwner", id).commit(); owner = id;
+    }
+    if (id.isEmpty()) return owner.isEmpty() ? PREFS : PREFS + "-guest";
+    if (!id.matches("user_[A-Za-z0-9]+")) return PREFS + "-guest";
+    return id.equals(owner) ? PREFS : PREFS + "-" + id;
+  }
+
+  private SharedPreferences prefs() { return context.getSharedPreferences(profileKey(), 0); }
+
   public String name() {
-    String saved = prefs.getString("name", "");
+    if (hidden()) return "";
+    String saved = prefs().getString("name", "");
     if (!saved.isEmpty()) return saved;
     return context.getSharedPreferences("boundary-account", 0).getString("name", "");
   }
-  public String email() { return prefs.getString("email", ""); }
+  public String email() { return hidden() ? "" : prefs().getString("email", ""); }
   public String accountId() { return context.getSharedPreferences("boundary-account", 0).getString("id", ""); }
 
   public void saveDetails(String name, String email) {
-    prefs.edit().putString("name", name.trim()).putString("email", email.trim()).apply();
+    prefs().edit().putString("name", name.trim()).putString("email", email.trim()).apply();
   }
 
-  public File photo() { return new File(new File(context.getFilesDir(), "profile"), "photo.jpg"); }
+  public File photo() {
+    String key = profileKey();
+    return new File(new File(context.getFilesDir(), key.equals(PREFS) ? "profile" : "profile/" + key), "photo.jpg");
+  }
 
-  public boolean hasPhoto() { return photo().exists(); }
+  private boolean hidden() { return context.getSharedPreferences("boundary-session", 0).getBoolean("signedOut", false) && !PlayerAccount.linked(context); }
+  public File visiblePhoto() { return hidden() ? null : photo(); }
+  public boolean hasPhoto() { return !hidden() && photo().exists(); }
+
+  /** Resolve the current account's storage before clearing it; keep legacy ownership stable. */
+  public boolean clearCurrentProfile() {
+    String key = profileKey();
+    File currentPhoto = photo();
+    SharedPreferences current = context.getSharedPreferences(key, 0);
+    String legacyOwner = key.equals(PREFS) ? current.getString("accountOwner", "") : "";
+    SharedPreferences.Editor clear = current.edit().clear();
+    if (!legacyOwner.isEmpty()) clear.putString("accountOwner", legacyOwner);
+    if (!clear.commit()) throw new IllegalStateException("Could not clear profile details");
+    return !currentPhoto.exists() || currentPhoto.delete();
+  }
 
   /** "team\0name" squad places claimed on this device. */
-  public Set<String> claims() { return new LinkedHashSet<>(prefs.getStringSet("claims", new HashSet<>())); }
+  public Set<String> claims() { return hidden() ? new LinkedHashSet<>() : new LinkedHashSet<>(prefs().getStringSet("claims", new HashSet<>())); }
 
   public void claim(String team, String name, boolean add) {
     Set<String> claims = claims();
     if (add) claims.add(Career.key(team, name)); else claims.remove(Career.key(team, name));
-    prefs.edit().putStringSet("claims", claims).apply();
+    prefs().edit().putStringSet("claims", claims).apply();
   }
 
   /** Everything this person plays as, across teams. */
@@ -73,16 +106,17 @@ public final class ProfileStore {
 
   public PlayerProfile attributes() {
     PlayerProfile p = new PlayerProfile();
-    p.battingHand = prefs.getString("battingHand", "");
-    p.battingOrder = prefs.getString("battingOrder", "");
-    p.bowlingStyle = prefs.getString("bowlingStyle", "");
-    p.role = prefs.getString("role", "");
-    p.city = prefs.getString("city", "");
+    if (hidden()) return p;
+    p.battingHand = prefs().getString("battingHand", "");
+    p.battingOrder = prefs().getString("battingOrder", "");
+    p.bowlingStyle = prefs().getString("bowlingStyle", "");
+    p.role = prefs().getString("role", "");
+    p.city = prefs().getString("city", "");
     return p;
   }
 
   public void saveAttributes(PlayerProfile p) {
-    prefs.edit().putString("battingHand", p.battingHand).putString("battingOrder", p.battingOrder)
+    prefs().edit().putString("battingHand", p.battingHand).putString("battingOrder", p.battingOrder)
         .putString("bowlingStyle", p.bowlingStyle).putString("role", p.role).putString("city", p.city).apply();
   }
 
