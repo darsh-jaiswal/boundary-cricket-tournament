@@ -21,9 +21,11 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import org.json.JSONObject;
 
-/** Foreground-only release checks; the optional banner never blocks match scoring. */
+/** Foreground release checks with a dismissible prompt outside active scoring. */
 public final class AppUpdates implements AutoCloseable {
   static final long INTERVAL_MS = 60_000;
+  static final String PROMPT_PREFS = "boundary-update-prompts";
+  private static final long REMIND_AFTER_MS = 24 * 60 * 60_000L;
   interface Source { UpdateRelease load() throws Exception; }
   private final Activity activity;
   private final Source source;
@@ -33,8 +35,9 @@ public final class AppUpdates implements AutoCloseable {
   private final ExecutorService io = Executors.newSingleThreadExecutor();
   private TextView banner;
   private UpdateRelease available;
-  private boolean started, closed, inFlight, manual;
+  private boolean started, closed, inFlight, manual, promptScheduled;
   private AlertDialog dialog;
+  private final Runnable prompt = () -> { promptScheduled = false; maybePrompt(); };
   private final Runnable tick = new Runnable() {
     @Override public void run() {
       if (!started || closed) return;
@@ -81,6 +84,8 @@ public final class AppUpdates implements AutoCloseable {
     started = false;
     manual = false;
     main.removeCallbacks(tick);
+    main.removeCallbacks(prompt);
+    promptScheduled = false;
     if (dialog != null) { dialog.dismiss(); dialog = null; }
   }
 
@@ -114,7 +119,7 @@ public final class AppUpdates implements AutoCloseable {
           if (notify) {
             if (available != null) showAvailable();
             else showMessage("You're up to date", "You're using the latest available Boundary version (" + installedVersion + ").");
-          }
+          } else if (!promptScheduled) { promptScheduled = true; main.postDelayed(prompt, 500); }
         } else {
           android.util.Log.w("AppUpdates", "Release check unavailable", error);
           if (notify) showMessage("Couldn't check for updates", "Check your internet connection and try again from the profile menu.");
@@ -134,16 +139,32 @@ public final class AppUpdates implements AutoCloseable {
     if (dialog != null && dialog.isShowing()) return;
     // Keep the confirmed release stable if another check completes while the dialog is open.
     UpdateRelease chosen = available;
-    dialog = new AlertDialog.Builder(activity).setTitle("Update available")
-        .setMessage("Boundary " + chosen.version + " is ready (" + chosen.sizeLabel()
-            + "). Download the update, then confirm installation when Android asks.")
-        .setNegativeButton("Later", null)
-        .setPositiveButton("Update", (d, which) -> {
+    dialog = new AlertDialog.Builder(activity).setTitle("Update Boundary")
+        .setMessage("A new version of Boundary is available.\n\nVersion " + chosen.version + " · " + chosen.sizeLabel()
+            + "\nDownload the update, then confirm installation when Android asks. Your saved data stays on this device.")
+        .setNegativeButton("Later", (d, which) -> deferPrompt(chosen))
+        .setOnCancelListener(d -> deferPrompt(chosen))
+        .setPositiveButton("Update now", (d, which) -> {
+          deferPrompt(chosen);
           try { activity.startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(chosen.source))); }
           catch (ActivityNotFoundException missing) {
             showMessage("Couldn't open the download", "Install a browser, then tap the update banner again.");
           }
         }).show();
+  }
+
+  private void maybePrompt() {
+    if (!started || closed || available == null || !activity.hasWindowFocus()) return;
+    if (activity instanceof MainActivity && !((MainActivity) activity).canShowUpdatePrompt()) return;
+    if (activity.getSharedPreferences(PROMPT_PREFS, 0).getLong(promptKey(available), 0) > System.currentTimeMillis()) return;
+    showAvailable();
+  }
+
+  private String promptKey(UpdateRelease release) { return release.versionCode + ":" + release.version; }
+
+  private void deferPrompt(UpdateRelease release) {
+    activity.getSharedPreferences(PROMPT_PREFS, 0).edit()
+        .putLong(promptKey(release), System.currentTimeMillis() + REMIND_AFTER_MS).apply();
   }
 
   private void showMessage(String title, String text) {

@@ -2511,6 +2511,8 @@ public class MainActivity extends AppCompatActivity {
     body.addView(storeView, new LinearLayout.LayoutParams(-1, -2));
   }
 
+  boolean canShowUpdatePrompt() { return !"Score".equals(page); }
+
   private void refreshPage(Runnable done) {
     updates.refresh();
     retryDeviceRevocations();
