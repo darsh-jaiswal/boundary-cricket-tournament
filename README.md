@@ -4,13 +4,13 @@ Native Android application written in Java for local, college, turf and club cri
 
 - Spectator site: https://boundary-cricket-tournament.vercel.app/
 - Source: https://github.com/darsh-jaiswal/boundary-cricket-tournament
-- [Download the signed Android APK](https://boundary-cricket-tournament.vercel.app/downloads/Boundary-Android-arm64.apk?v=1.0.11) for a modern physical Android phone.
+- [Download the signed Android APK](https://boundary-cricket-tournament.vercel.app/downloads/Boundary-Android-arm64.apk?v=1.0.12) for a modern physical Android phone.
 - Emulator: `app/build/outputs/apk/debug/app-x86_64-debug.apk`.
 - Universal build: `app/build/outputs/apk/debug/app-universal-debug.apk`.
 
 ## First use
 
-Version 1.0.11 adds pull-to-refresh, reliable logout, Google welcome, team invitation requests and future update prompts. See [1.0.11 notes](docs/RELEASE_1.0.11.md), [player and workspace flows](docs/PLAYER_AND_WORKSPACE_FLOWS.md), and [Neon versus SQLite storage](docs/DATABASE_PRODUCTION.md).
+Version 1.0.12 uses the official Google sign-in button artwork across Android and web. See [1.0.12 notes](docs/RELEASE_1.0.12.md), [player and workspace flows](docs/PLAYER_AND_WORKSPACE_FLOWS.md), and [Neon versus SQLite storage](docs/DATABASE_PRODUCTION.md).
 
 The owner-confirmed shop launch uses live Razorpay payments, ₹50 shipping and 3–5 day dispatch.
 See [launch stock and store settings](database/inventory/README.md). Customers must sign in with Google to check out.
