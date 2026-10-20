@@ -47,8 +47,11 @@ browser; approve Link my Boundary app for this device, then return. Phone login 
 Local profile preferences and photos are isolated by linked account and hidden after logout.
 
 From Android 1.0.11 onward, the foreground app checks for a newer signed release on resume
-and every minute. An update banner opens a Later / Update choice; Profile also has Check
-for updates. Install 1.0.11 once to enable this feature on older installations.
+and every minute. From 1.0.13, a newer release also opens an automatic Update now / Later
+prompt outside the scoring screen. Later postpones the reminder for that version for 24 hours.
+The update banner and Profile > Check for updates remain available. Install 1.0.13 once
+to enable automatic prompts on older installations. Updates download as signed APKs;
+Android asks the user to confirm installation.
 
 Drag down when already at the top of Home, My Cricket or Store to refresh. Store reloads
 the online catalog; the main screens reload saved data and check for updates. The player

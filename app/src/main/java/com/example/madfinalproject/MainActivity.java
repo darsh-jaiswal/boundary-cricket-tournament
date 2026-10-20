@@ -329,7 +329,7 @@ public class MainActivity extends AppCompatActivity {
     title.setGravity(Gravity.CENTER); box.addView(title);
     TextView detail = Ui.text(this, "Continue with Google, choose your permanent @username, and join your team.", 15, MUTED, false);
     detail.setGravity(Gravity.CENTER); detail.setPadding(0, dp(12), 0, dp(24)); box.addView(detail);
-    box.addView(Ui.pill(this, pal, "Continue with Google", true, () ->
+    box.addView(Ui.googleSignIn(this, () ->
         startActivity(new Intent(this, PlayerAccountActivity.class).putExtra("autoBegin", true))), new LinearLayout.LayoutParams(-1, -2));
     TextView legal = Ui.text(this, "By continuing, you agree to the Terms & Conditions and acknowledge the Privacy Policy.", 12, MUTED, false);
     legal.setGravity(Gravity.CENTER); legal.setPadding(0, dp(18), 0, dp(10)); box.addView(legal);
@@ -451,12 +451,6 @@ public class MainActivity extends AppCompatActivity {
       t.setPadding(0, dp(4), 0, 0);
       details.addView(t);
     }
-    if (!PlayerAccount.linked(this)) {
-      TextView link = Ui.text(this, "Link your Google player account", 13, GREEN, true);
-      link.setPadding(0, dp(6), 0, 0);
-      link.setOnClickListener(v -> { sheet.dismiss(); startActivity(new Intent(this, PlayerAccountActivity.class)); });
-      details.addView(link);
-    }
     LinearLayout social = Ui.row(this);
     social.setPadding(0, dp(10), 0, 0);
     social.addView(Ui.chip(this, pal, "Connections", false, () -> { sheet.dismiss();
@@ -467,6 +461,9 @@ public class MainActivity extends AppCompatActivity {
     who.addView(details, Ui.weight(1));
     who.addView(Ui.iconButton(this, pal, "edit", 36, SURFACE, INK, () -> { sheet.dismiss(); editProfile(); }));
     header.addView(who);
+    if (!PlayerAccount.linked(this)) {
+      header.addView(Ui.googleSignIn(this, () -> { sheet.dismiss(); startActivity(new Intent(this, PlayerAccountActivity.class)); }));
+    }
     // Actions need the whole card width; inside the name column the QR button was clipped.
     TextView connections = (TextView) social.getChildAt(0);
     connections.setSingleLine(false);
@@ -2513,6 +2510,8 @@ public class MainActivity extends AppCompatActivity {
     storeView = new StoreView(this, pal);
     body.addView(storeView, new LinearLayout.LayoutParams(-1, -2));
   }
+
+  boolean canShowUpdatePrompt() { return !"Score".equals(page); }
 
   private void refreshPage(Runnable done) {
     updates.refresh();

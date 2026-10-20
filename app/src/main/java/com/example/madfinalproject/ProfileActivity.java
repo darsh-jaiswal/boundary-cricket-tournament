@@ -538,7 +538,7 @@ public final class ProfileActivity extends AppCompatActivity {
     if (!PlayerAccount.linked(this)) {
       LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-2, -2);
       lp.topMargin = dp(14);
-      card.addView(Ui.pill(this, p, "Link Google account", true,
+      card.addView(Ui.googleSignIn(this,
           () -> startActivity(new Intent(this, PlayerAccountActivity.class))), lp);
     }
     addToBody(card, 10);
@@ -1002,7 +1002,7 @@ public final class ProfileActivity extends AppCompatActivity {
       why.setGravity(Gravity.CENTER);
       why.setPadding(0, dp(24), 0, dp(16));
       card.addView(why);
-      card.addView(Ui.pill(this, p, "Link Google account", true, () -> {
+      card.addView(Ui.googleSignIn(this, () -> {
         if (dialog[0] != null) dialog[0].dismiss();
         startActivity(new Intent(this, PlayerAccountActivity.class));
       }));
