@@ -7,6 +7,9 @@ import { pipeline } from 'node:stream/promises';
 // Publish the exact signed release as a static CDN asset, never through a Function.
 const release = JSON.parse(await readFile(new URL('../web/android-release.json', import.meta.url)));
 if (!/^https:\/\/github\.com\/darsh-jaiswal\/boundary-cricket-tournament\/releases\/download\/v[\d.]+\/Boundary-Android-arm64\.apk$/.test(release.source)
+    || !/^\d+\.\d+\.\d+$/.test(release.version)
+    || !release.source.includes(`/releases/download/v${release.version}/`)
+    || !Number.isSafeInteger(release.versionCode) || release.versionCode <= 0 || release.versionCode > 2100000000
     || !/^[a-f0-9]{64}$/.test(release.sha256)
     || !Number.isSafeInteger(release.bytes) || release.bytes <= 0 || release.bytes > 100_000_000) {
   throw new Error('Invalid Android release manifest');

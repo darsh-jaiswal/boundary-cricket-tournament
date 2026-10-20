@@ -21,6 +21,17 @@ public final class PlayerAccountActivity extends AppCompatActivity {
   private boolean busy;
   private Ui.Palette pal;
   private TextView signIn, refresh, unlink, find;
+  private final android.os.Handler main = new android.os.Handler(android.os.Looper.getMainLooper());
+  private boolean resumed;
+  private Runnable refreshed = () -> {};
+  private final Runnable poll = new Runnable() {
+    @Override public void run() {
+      if (!resumed) return;
+      if (!busy && !PlayerAccount.linked(PlayerAccountActivity.this)
+          && !getSharedPreferences("boundary-account", 0).getString("token", "").isEmpty()) check();
+      main.postDelayed(this, 2000);
+    }
+  };
 
   @Override public void onCreate(Bundle state) {
     super.onCreate(state);
@@ -28,7 +39,11 @@ public final class PlayerAccountActivity extends AppCompatActivity {
     ScrollView scroll = new ScrollView(this); body = Ui.column(this);
     int pad = dp(20); body.setPadding(pad, pad, pad, pad); scroll.setFillViewport(true);
     scroll.setBackgroundColor(pal.bg); scroll.addView(body);
-    setContentView(scroll); UiInsets.apply(scroll);
+    android.view.View refreshable = PullRefresh.wrap(this, scroll, done -> {
+      if (busy || getSharedPreferences("boundary-account", 0).getString("token", "").isEmpty()) { updateAccountUi(); done.run(); return; }
+      refreshed = done; check();
+    });
+    setContentView(refreshable); UiInsets.apply(refreshable);
     TextView back = Ui.pill(this, pal, "Back", false, this::finish); body.addView(back);
     label("Your player account", 26);
     label("Sign in with Google, choose your @username, then join your team.", 15);
@@ -45,11 +60,13 @@ public final class PlayerAccountActivity extends AppCompatActivity {
       find = action("Find player", this::lookup);
       action("Invite player on WhatsApp", this::invite);
     }
-    unlink = action("Unlink this device", () -> call(() -> {
-      PlayerAccount.request(this, new JSONObject().put("action", "revoke"));
-      runOnUiThread(() -> { getSharedPreferences("boundary-account", 0).edit().clear().apply(); updateAccountUi(); });
-    }));
+    unlink = action("Unlink this device", () -> {
+      PlayerAccount.disconnectLocally(this); updateAccountUi();
+      network.execute(() -> { try { PlayerAccount.retryRevocations(getApplicationContext()); }
+        catch (Exception offline) { android.util.Log.w("BoundaryLogout", "Remote revocation pending"); } });
+    });
     updateAccountUi();
+    if (state == null && getIntent().getBooleanExtra("autoBegin", false)) begin();
   }
   private void updateAccountUi() {
     android.content.SharedPreferences prefs = getSharedPreferences("boundary-account", 0);
@@ -65,8 +82,10 @@ public final class PlayerAccountActivity extends AppCompatActivity {
   }
   @Override protected void onResume() {
     super.onResume();
+    resumed = true; main.post(poll);
     if (!busy && !getSharedPreferences("boundary-account", 0).getString("token", "").isEmpty()) check();
   }
+  @Override protected void onPause() { resumed = false; main.removeCallbacks(poll); super.onPause(); }
   private void invite() {
     String team = getIntent().getStringExtra("teamName");
     String url = PlayerAccount.ORIGIN + "/player.html" + (team == null ? "" : "?team=" + Uri.encode(team));
@@ -82,8 +101,12 @@ public final class PlayerAccountActivity extends AppCompatActivity {
     String pendingUrl = prefs.getString("linkUrl", "");
     if (!pendingUrl.isEmpty()) { startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(pendingUrl))); return; }
     call(() -> {
+    long revision = PlayerAccount.sessionRevision(this);
     JSONObject result = PlayerAccount.request(this, new JSONObject().put("action", "begin"));
+    synchronized (PlayerAccount.class) {
+    if (revision != PlayerAccount.sessionRevision(this)) return;
     getSharedPreferences("boundary-account", 0).edit().putString("token", result.getString("token")).putString("linkUrl", result.getString("url")).putBoolean("linked", false).apply();
+    }
     runOnUiThread(() -> {
       if (isFinishing() || isDestroyed()) return;
       updateAccountUi();
@@ -93,13 +116,22 @@ public final class PlayerAccountActivity extends AppCompatActivity {
     });
   }); }
   private void check() { call(() -> {
+    long revision = PlayerAccount.sessionRevision(this);
+    String token = getSharedPreferences("boundary-account", 0).getString("token", "");
     JSONObject result = PlayerAccount.request(this, null);
     boolean linked = "linked".equals(result.optString("status"));
+    synchronized (PlayerAccount.class) {
+    if (revision != PlayerAccount.sessionRevision(this) || !token.equals(getSharedPreferences("boundary-account", 0).getString("token", ""))) return;
     android.content.SharedPreferences.Editor account = getSharedPreferences("boundary-account", 0).edit().putBoolean("linked", linked);
     // Kept so the profile can find this person's Google-registered squad places across teams.
     if (linked) account.putString("id", result.optString("id")).putString("name", result.optString("name")).putString("username", result.optString("username", ""));
     account.apply();
-    runOnUiThread(() -> { if (!isFinishing() && !isDestroyed()) updateAccountUi(); });
+    if (linked) getSharedPreferences("boundary-session", 0).edit().putBoolean("signedOut", false).putBoolean("guest", false).apply();
+    }
+    runOnUiThread(() -> { if (!isFinishing() && !isDestroyed()) {
+      updateAccountUi();
+      if (linked && getIntent().getBooleanExtra("autoBegin", false)) finish();
+    } });
   }); }
   private void lookup() {
     final String player = identifier.getText().toString().trim();
@@ -122,7 +154,7 @@ public final class PlayerAccountActivity extends AppCompatActivity {
       try { job.run(); } catch (Exception error) { runOnUiThread(() -> { if (!isFinishing() && !isDestroyed()) {
         updateAccountUi(); status.setText(error.getMessage() == null ? "Player service unavailable" : error.getMessage());
       } }); }
-      finally { runOnUiThread(() -> busy = false); }
+      finally { runOnUiThread(() -> { busy = false; Runnable done = refreshed; refreshed = () -> {}; done.run(); }); }
     });
   }
   private TextView label(String value, int size) {
@@ -135,5 +167,5 @@ public final class PlayerAccountActivity extends AppCompatActivity {
     return button;
   }
   private int dp(int value) { return Math.round(value * getResources().getDisplayMetrics().density); }
-  @Override protected void onDestroy() { network.shutdownNow(); super.onDestroy(); }
+  @Override protected void onDestroy() { resumed = false; main.removeCallbacksAndMessages(null); network.shutdownNow(); super.onDestroy(); }
 }

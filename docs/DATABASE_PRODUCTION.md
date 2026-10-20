@@ -20,6 +20,7 @@ Shared accounts and server-enforced organization roles remain separate work.
 | Neon: `cricket_matches` | Published spectator score snapshots, revision/time, hashed match authority, encrypted private match journal |
 | Neon: player tables | Clerk account ID, cricket display name, permanent username, keyed Google-email hash, provider, terms version and registration time; follower relationships |
 | Neon: device accounts | Hashed device token/IP, linked account ID, expiry and lookup counters |
+| Neon: team invitations and join requests | Organizer account ID, local team UUID/name, hashed invitation token, seven-day expiry; requesting player ID, pending/accepted status and timestamps |
 | Neon: community tables | Posts/replies, author/account ID, category/city and timestamps |
 | Neon: merchandise tables | Products/variants, material/size/colour, prices, stock, reservations and order items/totals/status |
 | Neon: shop orders | Customer name, delivery address and email; Razorpay order/payment/refund references and status; terms version/timestamps |

@@ -15,6 +15,10 @@
   "buildCommand": "npm run db:migrate && node scripts/prepare-download.mjs",
   "headers": [
     {
+      "source": "/android-release.json",
+      "headers": [{"key": "Cache-Control", "value": "no-store, max-age=0"}]
+    },
+    {
       "source": "/(.*)",
       "headers": [
         {

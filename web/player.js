@@ -2,6 +2,8 @@ import {account,verifiedGoogle} from './account.js';
 const $=s=>document.querySelector(s);let clerk,profileRevision=0,savedUsername='',loadingProfile=false,busy=false;
 const link=new URLSearchParams(location.search).get('link');
 const team=new URLSearchParams(location.search).get('team');
+const returnTo=new URLSearchParams(location.search).get('returnTo');
+const invitationReturn=typeof returnTo==='string'&&/^\/join\.html\?invite=[a-f0-9]{64}$/.test(returnTo)?returnTo:'';
 if(team){$('#invitation').hidden=false;$('#invitation').textContent='You have been invited to '+team.slice(0,100)+'. Register below, then send your @username to the team organizer so they can add you.';}
 function updateForm(){
   const enabled=verifiedGoogle(clerk)&&!loadingProfile&&!busy;
@@ -23,6 +25,7 @@ function showPlayer(player){
   updateForm();
   $('#player-code').textContent=player.username?'Your username: @'+player.username:'Choose your public username below.';
   $('#share').hidden=!player.username;
+  const back=$('#continue-invitation');back.hidden=!(invitationReturn&&player.username);if(!back.hidden)back.href=invitationReturn;
   if(player.username){const text='My Boundary cricket username is @'+player.username+'. Add me to your team on Boundary.';
     $('#share').href='https://wa.me/?text='+encodeURIComponent(text);}
   if(link)$('#approve').disabled=false;
@@ -62,12 +65,12 @@ try{const response=await fetch('/api/players?config=1');if(!response.ok)throw ne
     $('#profile').hidden=!clerk.isSignedIn;$('#sign-out').hidden=!clerk.isSignedIn;
     if(!verified){
       profileRevision++;loadedUser='';savedUsername='';busy=false;loadingProfile=false;
-      $('#approve').disabled=true;$('#share').hidden=true;$('#player-code').textContent='';$('#register').reset();
+      $('#approve').disabled=true;$('#share').hidden=true;$('#continue-invitation').hidden=true;$('#player-code').textContent='';$('#register').reset();
       updateForm();message(clerk.isSignedIn?'Connect Google from your account menu before registering.':'Continue with Google, then choose your cricket name and permanent username.');return;
     }
     if(id===loadedUser){updateForm();return;}
     loadedUser=id;savedUsername='';busy=false;loadingProfile=true;
-    $('#approve').disabled=true;$('#share').hidden=true;$('#player-code').textContent='';$('#register').reset();
+    $('#approve').disabled=true;$('#share').hidden=true;$('#continue-invitation').hidden=true;$('#player-code').textContent='';$('#register').reset();
     const revision=++profileRevision;updateForm();message('Loading your player profile...');
     api({action:'me'}).then(player=>{
       if(clerk.user?.id!==id||profileRevision!==revision)return;

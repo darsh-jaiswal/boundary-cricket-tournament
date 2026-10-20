@@ -271,8 +271,8 @@ public final class PerformanceActivity extends AppCompatActivity {
     row.setGravity(Gravity.TOP);
     row.setPadding(dp(16), dp(2), dp(16), dp(22));
     int size = dp(116);
-    File photo = me.photo();
-    Bitmap bitmap = owner && photo.exists() ? Ui.decode(photo, size) : null;
+    File photo = me.visiblePhoto();
+    Bitmap bitmap = owner && photo != null && photo.exists() ? Ui.decode(photo, size) : null;
     View picture;
     if (bitmap != null) {
       ImageView image = new ImageView(this);
@@ -1767,8 +1767,8 @@ public final class PerformanceActivity extends AppCompatActivity {
   }
 
   private View playerPicture() {
-    File photo = me.photo();
-    Bitmap bitmap = owner && photo.exists() ? Ui.decode(photo, dp(160)) : null;
+    File photo = me.visiblePhoto();
+    Bitmap bitmap = owner && photo != null && photo.exists() ? Ui.decode(photo, dp(160)) : null;
     if (bitmap != null) {
       ImageView image = new ImageView(this);
       image.setImageBitmap(bitmap);

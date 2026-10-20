@@ -36,6 +36,8 @@ public class MainActivity extends AppCompatActivity {
       ON_ACCENT = Color.WHITE;
   private Ui.Palette pal;
   private ProfileStore profile;
+  private AppUpdates updates;
+  private StoreView storeView;
   private Repository repo;
   private Match match;
   private String page = "Home", role = "Organizer";
@@ -45,6 +47,7 @@ public class MainActivity extends AppCompatActivity {
   private TextToSpeech tts;
   private boolean audioReady, pa;
   private boolean logoutUiVisible;
+  private boolean renderedLinked, renderedGuest;
   private static volatile boolean logoutWorkerRunning;
   private final Handler handler = new Handler(Looper.getMainLooper());
   private AlertDialog pending;
@@ -67,24 +70,31 @@ public class MainActivity extends AppCompatActivity {
       getPreferences(0).edit().putString("role", role).apply();
     }
     tts = new TextToSpeech(this, status -> audioReady = status == TextToSpeech.SUCCESS);
+    updates = new AppUpdates(this);
     draw();
   }
 
   @Override
   protected void onResume() {
     super.onResume();
+    updates.start();
+    boolean linked = PlayerAccount.linked(this), guest = getSharedPreferences("boundary-session", 0).getBoolean("guest", false);
+    if (linked != renderedLinked || guest != renderedGuest) draw();
     logoutUiVisible = true;
     completePendingLogout();
+    retryDeviceRevocations();
   }
 
   @Override
   protected void onPause() {
+    updates.stop();
     logoutUiVisible = false;
     super.onPause();
   }
 
   @Override
   protected void onDestroy() {
+    updates.close();
     if (tts != null) {
       tts.stop();
       tts.shutdown();
@@ -224,7 +234,15 @@ public class MainActivity extends AppCompatActivity {
         });
     // draw() swaps the content view on every page change; insets are not re-dispatched unless asked.
     ViewCompat.requestApplyInsets(root);
+    renderedLinked = PlayerAccount.linked(this);
+    renderedGuest = getSharedPreferences("boundary-session", 0).getBoolean("guest", false);
+    if (!renderedLinked && !renderedGuest) {
+      root.addView(updates.createBanner());
+      welcome();
+      return;
+    }
     root.addView(topBar());
+    root.addView(updates.createBanner());
     if (isMyCricket()) {
       HorizontalScrollView strip = new HorizontalScrollView(this);
       strip.setHorizontalScrollBarEnabled(false);
@@ -251,7 +269,7 @@ public class MainActivity extends AppCompatActivity {
     body.setOrientation(1);
     body.setPadding(dp(18), dp(10), dp(18), dp(24));
     scroll.addView(body);
-    root.addView(scroll, new LinearLayout.LayoutParams(-1, 0, 1));
+    root.addView(PullRefresh.wrap(this, scroll, this::refreshPage), new LinearLayout.LayoutParams(-1, 0, 1));
     root.addView(bottomNav());
     switch (page) {
       case "Matches":
@@ -294,6 +312,38 @@ public class MainActivity extends AppCompatActivity {
     return Arrays.asList("Matches", "Cups", "Teams", "Stats", "Score").contains(page);
   }
 
+  /** First launch and logout both return to an explicit signed-out entry screen. */
+  private void welcome() {
+    LinearLayout box = Ui.column(this);
+    box.setGravity(Gravity.CENTER_HORIZONTAL);
+    box.setPadding(dp(28), dp(40), dp(28), dp(24));
+    ScrollView scroll = new ScrollView(this);
+    scroll.setFillViewport(true); scroll.addView(box);
+    root.addView(PullRefresh.wrap(this, scroll, done -> { updates.refresh(); draw(); done.run(); }), new LinearLayout.LayoutParams(-1, 0, 1));
+    box.addView(Ui.text(this, "BOUNDARY", 34, GREEN, true));
+    TextView tagline = Ui.text(this, "YOUR CRICKET IDENTITY", 12, MUTED, true);
+    tagline.setPadding(0, dp(8), 0, 0); box.addView(tagline);
+    View space = new View(this); box.addView(space, new LinearLayout.LayoutParams(1, 0, 1));
+    boolean signedOut = getSharedPreferences("boundary-session", 0).getBoolean("signedOut", false);
+    TextView title = Ui.text(this, signedOut ? "You're signed out" : "Your cricket starts here", 27, INK, true);
+    title.setGravity(Gravity.CENTER); box.addView(title);
+    TextView detail = Ui.text(this, "Continue with Google, choose your permanent @username, and join your team.", 15, MUTED, false);
+    detail.setGravity(Gravity.CENTER); detail.setPadding(0, dp(12), 0, dp(24)); box.addView(detail);
+    box.addView(Ui.pill(this, pal, "Continue with Google", true, () ->
+        startActivity(new Intent(this, PlayerAccountActivity.class).putExtra("autoBegin", true))), new LinearLayout.LayoutParams(-1, -2));
+    TextView legal = Ui.text(this, "By continuing, you agree to the Terms & Conditions and acknowledge the Privacy Policy.", 12, MUTED, false);
+    legal.setGravity(Gravity.CENTER); legal.setPadding(0, dp(18), 0, dp(10)); box.addView(legal);
+    LinearLayout links = Ui.row(this);
+    links.addView(Ui.chip(this, pal, "Terms", false, () -> openPolicy("/terms.html")));
+    links.addView(Ui.chip(this, pal, "Privacy", false, () -> openPolicy("/privacy.html"))); box.addView(links);
+    TextView guest = Ui.text(this, "Explore as a guest", 14, GREEN, true);
+    guest.setMinHeight(dp(48)); guest.setGravity(Gravity.CENTER); guest.setPadding(dp(16), dp(16), dp(16), 0);
+    guest.setOnClickListener(v -> {
+      getSharedPreferences("boundary-session", 0).edit().putBoolean("guest", true).apply();
+      role = "Spectator"; getPreferences(0).edit().putString("role", role).apply(); draw();
+    }); box.addView(guest);
+  }
+
   private View plusButton;
 
   /** Avatar on the left opens the profile panel; the + on the right opens the create menu. */
@@ -301,7 +351,7 @@ public class MainActivity extends AppCompatActivity {
     LinearLayout head = Ui.row(this);
     head.setPadding(dp(16), dp(10), dp(16), dp(10));
     head.setBackgroundColor(PAPER);
-    View avatar = Ui.avatar(this, pal, profile.photo(), profile.name(), 44);
+    View avatar = Ui.avatar(this, pal, profile.visiblePhoto(), profile.name(), 44);
     avatar.setContentDescription("Open profile panel");
     avatar.setOnClickListener(v -> guard(this::drawer));
     head.addView(avatar);
@@ -387,7 +437,7 @@ public class MainActivity extends AppCompatActivity {
     header.setPadding(dp(16), dp(16), dp(16), dp(16));
     LinearLayout who = Ui.row(this);
     who.setGravity(Gravity.TOP);
-    View avatar = Ui.avatar(this, pal, profile.photo(), profile.name(), 64);
+    View avatar = Ui.avatar(this, pal, profile.visiblePhoto(), profile.name(), 64);
     avatar.setOnClickListener(v -> { sheet.dismiss(); startActivity(new Intent(this, ProfilePhotoActivity.class)); });
     who.addView(avatar);
     LinearLayout details = Ui.column(this);
@@ -445,6 +495,7 @@ public class MainActivity extends AppCompatActivity {
       drawerItem(items, "settings", "Umpire tools", () -> { sheet.dismiss(); page = "Tools"; draw(); });
     items.addView(drawerRule());
     drawerItem(items, "appearance", "Appearance", () -> { sheet.dismiss(); appearance(); });
+    drawerItem(items, "info", "Check for updates", () -> { sheet.dismiss(); updates.checkNow(); });
     items.addView(drawerRule());
     drawerGroup(items, "support", "Support", new String[][] {
         {"help", "Get help"}, {"support", "Contact support"}, {"info", "Report a problem"}}, label -> {
@@ -640,26 +691,31 @@ public class MainActivity extends AppCompatActivity {
 
   private void logout() {
     new AlertDialog.Builder(this).setTitle("Log out of Boundary?")
-        .setMessage("This disconnects your player account and opens your browser to finish signing out of Boundary. Your registered username, saved matches, teams and recovery codes are kept.")
+        .setMessage("This signs you out of this app immediately and opens your browser to finish signing out of Boundary. Your registered username, saved matches, teams and recovery codes are kept.")
         .setNegativeButton("Cancel", null)
         .setPositiveButton("Log out", (d, w) -> {
-          if (logoutWorkerRunning) return;
-          logoutWorkerRunning = true;
-          getPreferences(0).edit().putBoolean("logoutInProgress", true).remove("logoutError").apply();
+          try { PlayerAccount.disconnectLocally(getApplicationContext()); }
+          catch (Exception error) { message("Couldn't sign out", error.getMessage()); return; }
+          getPreferences(0).edit().putString("role", "Spectator").putBoolean("browserSignOutPending", true)
+              .putBoolean("logoutInProgress", false).remove("logoutError").apply();
+          getSharedPreferences("boundary-session", 0).edit().putBoolean("guest", false).apply();
           completePendingLogout();
-          new Thread(() -> {
-          try {
-            PlayerAccount.signOutDevice(getApplicationContext());
-            // Persist the follow-up before touching this Activity: it may have been recreated.
-            getPreferences(0).edit().putString("role", "Spectator").putBoolean("browserSignOutPending", true)
-                .putBoolean("logoutInProgress", false).apply();
-          } catch (Exception error) {
-            getPreferences(0).edit().putBoolean("logoutInProgress", false)
-                .putString("logoutError", "Could not disconnect this device. Connect to the internet and try again. "
-                    + (error.getMessage() == null ? "" : error.getMessage())).apply();
-          } finally { logoutWorkerRunning = false; }
-          }, "Boundary-logout").start();
+          retryDeviceRevocations();
         }).show();
+  }
+
+  private void retryDeviceRevocations() {
+    synchronized (MainActivity.class) {
+      if (logoutWorkerRunning) return;
+      if (getSharedPreferences("boundary-revocations", 0).getStringSet("tokens", Collections.emptySet()).isEmpty()) return;
+      logoutWorkerRunning = true;
+    }
+    Context app = getApplicationContext();
+    new Thread(() -> {
+      try { PlayerAccount.retryRevocations(app); }
+      catch (Exception offline) { android.util.Log.w("BoundaryLogout", "Remote revocation pending; local session is signed out"); }
+      finally { logoutWorkerRunning = false; }
+    }, "Boundary-logout-revoke").start();
   }
 
   private void completePendingLogout() {
@@ -696,8 +752,7 @@ public class MainActivity extends AppCompatActivity {
         .setNegativeButton("Cancel", null)
         .setPositiveButton("Delete account", (d, w) -> {
           String id = profile.accountId();
-          getSharedPreferences("boundary-profile", 0).edit().clear().apply();
-          if (profile.photo().exists() && !profile.photo().delete()) Toast.makeText(this, "Could not remove the photo file", Toast.LENGTH_SHORT).show();
+          if (!profile.clearCurrentProfile()) Toast.makeText(this, "Could not remove the photo file", Toast.LENGTH_SHORT).show();
           new Thread(() -> {
             try { PlayerAccount.request(this, new org.json.JSONObject().put("action", "revoke")); } catch (Exception ignored) { }
             getSharedPreferences("boundary-account", 0).edit().clear().apply();
@@ -824,7 +879,7 @@ public class MainActivity extends AppCompatActivity {
     LinearLayout follow = Ui.row(this);
     follow.setPadding(0, dp(22), 0, dp(4));
     android.widget.FrameLayout me = new android.widget.FrameLayout(this);
-    me.addView(Ui.avatar(this, pal, profile.photo(), profile.name(), 70));
+    me.addView(Ui.avatar(this, pal, profile.visiblePhoto(), profile.name(), 70));
     View add = Ui.iconButton(this, pal, "plus", 26, GREEN, ON_ACCENT, null);
     android.widget.FrameLayout.LayoutParams addLp = new android.widget.FrameLayout.LayoutParams(dp(26), dp(26), Gravity.BOTTOM | Gravity.END);
     me.addView(add, addLp);
@@ -2392,7 +2447,7 @@ public class MainActivity extends AppCompatActivity {
       action(c, "Add registered player", () -> {
         if (!writable()) return;
         getPreferences(0).edit().putString("addingPlayerTeam", t.id).apply();
-        startActivityForResult(new Intent(this, PlayerAccountActivity.class).putExtra("pick", true).putExtra("teamName", t.name), 88);
+        startActivityForResult(new Intent(this, TeamInviteActivity.class).putExtra("teamId", t.id).putExtra("teamName", t.name), 88);
       });
       action(c, "Players & career statistics", () -> players(t));
     }
@@ -2409,7 +2464,7 @@ public class MainActivity extends AppCompatActivity {
               if (w == t.players.size()) {
                 if (!writable()) return;
                 getPreferences(0).edit().putString("addingPlayerTeam", t.id).apply();
-                startActivityForResult(new Intent(this, PlayerAccountActivity.class).putExtra("pick", true), 88);
+                startActivityForResult(new Intent(this, TeamInviteActivity.class).putExtra("teamId", t.id).putExtra("teamName", t.name), 88);
               } else playerOptions(t.name, t.players.get(w));
             })
         .show();
@@ -2455,7 +2510,15 @@ public class MainActivity extends AppCompatActivity {
   }
 
   private void store() {
-    body.addView(new StoreView(this, pal), new LinearLayout.LayoutParams(-1, -2));
+    storeView = new StoreView(this, pal);
+    body.addView(storeView, new LinearLayout.LayoutParams(-1, -2));
+  }
+
+  private void refreshPage(Runnable done) {
+    updates.refresh();
+    retryDeviceRevocations();
+    if (page.equals("Store") && storeView != null) storeView.refresh(done);
+    else { draw(); done.run(); }
   }
 
   /** Umpire tools: hands-free voice commands and the square-leg stump cam. */
@@ -2661,10 +2724,20 @@ public class MainActivity extends AppCompatActivity {
   protected void onActivityResult(int req, int result, Intent data) {
     super.onActivityResult(req, result, data);
     if (req == 88 && result == RESULT_OK && data != null) {
+      if (!PlayerAccount.linked(this) || !writable()) return;
+      String ownerId = data.getStringExtra("ownerId");
+      if (ownerId == null || !ownerId.equals(getSharedPreferences("boundary-account", 0).getString("id", ""))) return;
       String teamId = getPreferences(0).getString("addingPlayerTeam", "");
       String name = data.getStringExtra("playerName"), accountId = data.getStringExtra("playerId");
       if (name == null || name.isEmpty() || accountId == null || !accountId.startsWith("user_")) return;
       for (Team team : repo.teams()) if (team.id.equals(teamId)) {
+        for (RegisteredPlayer receipt : repo.list("registered-player", RegisteredPlayer.class))
+          if (receipt.teamId.equals(teamId) && receipt.accountId.equals(accountId)) {
+            message("Already in this team", receipt.name + " is already in this squad."); return;
+          }
+        for (String savedName : team.players) if (savedName.equalsIgnoreCase(name) && !savedName.equals(name)) {
+          message("Name already in team", "Choose a distinct display name before adding this player."); return;
+        }
         String existing = registeredId(teamId, name);
         if (!existing.isEmpty() && !existing.equals(accountId)) { message("Name already in team", "A different registered player already uses this name. Ask the player to choose a distinct cricket display name."); return; }
         if (!team.players.contains(name)) team.players.add(name);

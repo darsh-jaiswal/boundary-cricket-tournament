@@ -18,9 +18,10 @@ Saving shows progress and success/errors next to the action button.
 
 ## Logout
 
-Android Logout first revokes the linked device session. Failed revocation is reported and can
-be retried. After success the app removes local account credentials, returns to Home in Spectator
-mode and opens `/logout.html` in the browser to end its Boundary/Clerk session. The browser
+Android Logout immediately removes the active local account credentials and returns to the
+Google welcome screen, even when offline. Remote device-token revocation is queued privately
+and retried when the app can reach the server; queued tokens cannot authenticate the app.
+It opens `/logout.html` in the browser to end its Boundary/Clerk session. The browser
 confirms sign-out or offers retry on failure. It does not sign you out of Google's other services.
 The registration page also has a separate **Sign out of this browser** button; that browser action
 does not revoke another device's app token. Logout keeps player registration, permanent username,
@@ -28,12 +29,31 @@ saved teams, tournaments and match history.
 
 ## WhatsApp invitations
 
-In a team's Add registered player screen, choose **Invite player on WhatsApp**.
-WhatsApp opens a draft containing the team name and a Google-registration link.
-Choose the recipient and send it yourself. If WhatsApp is absent, Android offers other sharing apps.
-The recipient registers and uses **Share my username on WhatsApp** to send their handle back.
-The organizer then finds that handle and confirms Add player. Teams are saved locally;
-the invitation does not silently join a remote team or transfer a team database.
+In a team's Add registered player screen, choose **Share via WhatsApp**, Share, Copy link,
+or Team QR. The organizer must have a linked Google registration. A team link lasts seven days.
+WhatsApp opens a draft; choose the recipient and send it yourself. If WhatsApp is absent,
+Android offers other sharing apps. The recipient opens the link, signs in with Google,
+registers a permanent username if needed, and requests to join. The organizer refreshes
+Join requests and confirms Add player. Accepted requests can be imported again on this device
+if its local squad was reset. Duplicate account IDs cannot be added twice to the same team.
+Exact username search remains available for directly adding an already registered player.
+Invitations and requests live in Neon; the resulting squad remains in the organizer's SQLite.
+This flow does not transfer a team database or provide full squad synchronization.
+
+## First launch, updates and refresh
+
+First launch shows Continue with Google and Explore as a guest. Google sign-in opens the
+browser; approve Link my Boundary app for this device, then return. Phone login is not used.
+Local profile preferences and photos are isolated by linked account and hidden after logout.
+
+From Android 1.0.11 onward, the foreground app checks for a newer signed release on resume
+and every minute. An update banner opens a Later / Update choice; Profile also has Check
+for updates. Install 1.0.11 once to enable this feature on older installations.
+
+Drag down when already at the top of Home, My Cricket or Store to refresh. Store reloads
+the online catalog; the main screens reload saved data and check for updates. The player
+account screen refreshes its link status, and the team invitation screen reloads join requests.
+Pull-to-refresh does not install an APK or replace an active scoring journal.
 
 ## Workspace modes
 
