@@ -31,7 +31,7 @@ public class LoginEntryDeviceTest {
     };
     instrumentation.addMonitor(monitor);
     try(ActivityScenario<MainActivity> scenario=ActivityScenario.launch(MainActivity.class)) {
-      onView(withText("Continue with Google")).check(matches(isDisplayed()));
+      onView(withContentDescription("Sign in with Google")).check(matches(isDisplayed()));
       onView(withText("Explore as a guest")).perform(scrollTo(),click());
       assertTrue(session.getBoolean("guest",false));
       // Model a previously saved personal profile and a linked identity without a server credential.

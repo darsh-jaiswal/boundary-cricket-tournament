@@ -66,7 +66,7 @@ public final class TeamInviteActivity extends AppCompatActivity {
       loadRequests();
     }else{
       owner="";link="";requests.removeAllViews();status.setText("Sign in with Google before managing this team.");
-      button(requests,"Continue with Google",()->startActivity(new Intent(this,PlayerAccountActivity.class).putExtra("autoBegin",true)));
+      requests.addView(Ui.googleSignIn(this,()->startActivity(new Intent(this,PlayerAccountActivity.class).putExtra("autoBegin",true))));
     }
   }
 

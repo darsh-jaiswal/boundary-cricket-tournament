@@ -21,6 +21,7 @@ public final class PlayerAccountActivity extends AppCompatActivity {
   private boolean busy;
   private Ui.Palette pal;
   private TextView signIn, refresh, unlink, find;
+  private android.view.View googleSignIn;
   private final android.os.Handler main = new android.os.Handler(android.os.Looper.getMainLooper());
   private boolean resumed;
   private Runnable refreshed = () -> {};
@@ -48,7 +49,8 @@ public final class PlayerAccountActivity extends AppCompatActivity {
     label("Your player account", 26);
     label("Sign in with Google, choose your @username, then join your team.", 15);
     status = label("", 15); status.setAccessibilityLiveRegion(android.view.View.ACCESSIBILITY_LIVE_REGION_POLITE);
-    signIn = action("Continue with Google", this::begin);
+    googleSignIn = Ui.googleSignIn(this, this::begin); body.addView(googleSignIn);
+    signIn = action("Manage username / Google account", this::begin);
     refresh = action("Refresh account status", this::check);
     if (getIntent().getBooleanExtra("pick", false)) {
       label("Add a player", 22);
@@ -76,6 +78,8 @@ public final class PlayerAccountActivity extends AppCompatActivity {
         : pending ? "Finish Google registration in your browser, then return here. Your account link refreshes automatically."
         : "Connect your Google account to find registered players and start matches.");
     signIn.setText(linked ? "Manage username / Google account" : pending ? "Continue Google registration" : "Continue with Google");
+    signIn.setVisibility(linked ? android.view.View.VISIBLE : android.view.View.GONE);
+    googleSignIn.setVisibility(linked ? android.view.View.GONE : android.view.View.VISIBLE);
     refresh.setVisibility(pending ? android.view.View.VISIBLE : android.view.View.GONE);
     unlink.setVisibility(pending ? android.view.View.VISIBLE : android.view.View.GONE);
     if (find != null) { find.setEnabled(linked); find.setAlpha(linked ? 1f : .5f); }

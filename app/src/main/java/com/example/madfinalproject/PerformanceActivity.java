@@ -902,7 +902,7 @@ public final class PerformanceActivity extends AppCompatActivity {
     if (!PlayerAccount.linked(this)) {
       LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-2, -2);
       lp.topMargin = dp(16);
-      box.addView(Ui.pill(this, p, "Link Google account", true,
+      box.addView(Ui.googleSignIn(this,
           () -> startActivity(new Intent(this, PlayerAccountActivity.class))), lp);
     }
   }

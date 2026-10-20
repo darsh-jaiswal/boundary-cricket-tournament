@@ -22,6 +22,23 @@ import java.util.Locale;
 public final class Ui {
   private Ui() {}
 
+  /** Google's unmodified pre-approved light button artwork, also used by the website. */
+  public static android.widget.ImageButton googleSignIn(Context context, Runnable action) {
+    android.widget.ImageButton button = new android.widget.ImageButton(context);
+    float density = context.getResources().getDisplayMetrics().density;
+    button.setImageResource(R.drawable.google_signin);
+    button.setBackgroundColor(android.graphics.Color.TRANSPARENT);
+    button.setPadding(0, Math.round(4 * density), 0, Math.round(4 * density));
+    button.setAdjustViewBounds(true);
+    button.setMaxWidth(Math.round(200 * density));
+    button.setMaxHeight(Math.round(48 * density));
+    button.setMinimumHeight(Math.round(48 * density));
+    button.setScaleType(ImageView.ScaleType.FIT_CENTER);
+    button.setContentDescription("Sign in with Google");
+    button.setOnClickListener(view -> action.run());
+    return button;
+  }
+
   public static final String PREFS = "boundary-ui", APPEARANCE = "appearance";
 
   /** Resolved colours for the current light/dark mode. */

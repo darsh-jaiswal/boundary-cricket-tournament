@@ -14,12 +14,19 @@ export async function loadAccount(publishableKey) {
   return clerk;
 }
 export async function account(publishableKey, target, onChange) {
+  if (!document.querySelector('link[data-google-sign-in]')) {
+    const stylesheet=document.createElement('link');stylesheet.rel='stylesheet';stylesheet.href='/google-signin.css';
+    stylesheet.dataset.googleSignIn='';document.head.append(stylesheet);
+  }
   const clerk=await loadAccount(publishableKey);
   function render() {
     target.replaceChildren();
     if (clerk.isSignedIn) clerk.mountUserButton(target);
     else {
-      const button=document.createElement('button');button.textContent='Continue with Google';
+      const button=document.createElement('button');button.className='google-sign-in';
+      button.setAttribute('aria-label','Sign in with Google');
+      const artwork=document.createElement('img');artwork.src='/assets/auth/google-signin.png';
+      artwork.alt='';artwork.width=180;artwork.height=40;button.append(artwork);
       button.onclick=async()=>{
         button.disabled=true;
         try {
@@ -27,7 +34,7 @@ export async function account(publishableKey, target, onChange) {
           await clerk.client.signIn.authenticateWithRedirect({strategy:'oauth_google',
             redirectUrl:location.origin+'/oauth-callback.html?returnTo='+encodeURIComponent(destination),
             redirectUrlComplete:location.href});
-        } catch(error) {button.disabled=false;button.textContent='Retry Google sign-in';
+        } catch(error) {button.disabled=false;button.setAttribute('aria-label','Retry Google sign-in');
           const message=document.createElement('p');message.setAttribute('role','alert');message.textContent=error.errors?.[0]?.longMessage||error.message||'Google sign-in could not start';target.append(message);}
       };
       target.append(button);
