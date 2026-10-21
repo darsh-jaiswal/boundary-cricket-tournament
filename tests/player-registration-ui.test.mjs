@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
 
 const flush=()=>new Promise(resolve=>setImmediate(resolve));
-async function screen({profile,register}={}){
+async function screen({profile,register,search='',complete}={}){
   const nodes=new Map();
   const node=id=>{
     if(!nodes.has(id))nodes.set(id,{hidden:true,disabled:true,textContent:'',classList:{toggle(){}},elements:{name:{value:''},username:{value:''}},reset(){this.elements.name.value='';this.elements.username.value='';}});
@@ -16,17 +16,28 @@ async function screen({profile,register}={}){
     if(url.includes('?config'))return {ok:true,json:async()=>({publishableKey:'test'})};
     const body=JSON.parse(options.body);requests.push(body);
     if(body.action==='me')return profile||{ok:true,json:async()=>({registered:false})};
+    if(body.action==='complete')return {ok:true,json:async()=>complete};
     assert.equal(body.action,'register');
     return register?register(body):{ok:true,json:async()=>({id:'user_test',name:body.name,username:body.username})};
   };
   const source=(await readFile(new URL('../web/player.js',import.meta.url),'utf8')).replace(/^import[^\n]*\n/,'');
   const AsyncFunction=Object.getPrototypeOf(async function(){}).constructor;
   await new AsyncFunction('document','location','fetch','account','verifiedGoogle',source)(
-    {querySelector:node},{search:''},fetch,
+    {querySelector:node},{search},fetch,
     async(_key,_target,callback)=>{onChange=callback;callback(clerk);},value=>Boolean(value?.isSignedIn)
   );
   return {node,clerk,requests,onChange,submit:()=>node('#register').onsubmit({preventDefault(){},currentTarget:node('#register')})};
 }
+
+test('reopening a completed app sign-in shows success without another callback',async()=>{
+  const ui=await screen({search:'?app=10000000-0000-4000-8000-000000000001',
+    profile:{ok:true,json:async()=>({name:'Player',username:'player'})},complete:{alreadyLinked:true}});
+  await flush();await flush();
+  assert.match(ui.node('#status').textContent,/Sign-in complete/);
+  assert.equal(ui.node('#retry').hidden,true);
+  assert.equal(ui.node('#open-app').hidden,true);
+  assert.equal(ui.requests.filter(request=>request.action==='complete').length,1);
+});
 
 test('registration waits for saved-profile loading and allows editing an existing username',async()=>{
   let resolve;
