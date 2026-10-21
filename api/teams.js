@@ -53,11 +53,17 @@ export function teamHandler({database=db,member=verifiedMember,deviceAccount=dev
           ||!/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\.\d{3,6}Z$/.test(before.created)||!Number.isFinite(Date.parse(before.created))
           ||typeof before.playerId!=='string'||!/^user_[a-zA-Z0-9]+$/.test(before.playerId)))throw new HttpError(400,'Invalid request page');
         const created=before?.created||null,playerId=before?.playerId||'';
-        const rows=await sql`SELECT r.player_id AS id,p.name,p.username,r.status,
-          to_char(r.created AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS created FROM boundary_team_join_requests r
-          JOIN boundary_registered_players p ON p.owner_id=r.player_id
-          WHERE r.owner_id=${account.owner_id} AND r.team_id=${body.teamId}
-          AND (${created}::timestamptz IS NULL OR (r.created,r.player_id)<(${created}::timestamptz,${playerId}))
+        const rows=await sql`WITH scope AS (SELECT ${account.owner_id}::text AS owner_id,${body.teamId}::uuid AS team_id),
+          roster AS (
+            SELECT j.player_id,p.name,p.username,j.status,j.created,false AS practice
+            FROM boundary_team_join_requests j JOIN boundary_registered_players p ON p.owner_id=j.player_id
+            JOIN scope s ON j.owner_id=s.owner_id AND j.team_id=s.team_id
+            UNION ALL
+            SELECT p.id,p.name,p.username,'accepted',p.created,true
+            FROM boundary_practice_players p JOIN scope s ON p.owner_id=s.owner_id AND p.team_id=s.team_id
+          ) SELECT r.player_id AS id,r.name,r.username,r.status,r.practice,
+          to_char(r.created AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS created FROM roster r
+          WHERE (${created}::timestamptz IS NULL OR (r.created,r.player_id)<(${created}::timestamptz,${playerId}))
           ORDER BY r.created DESC,r.player_id DESC LIMIT 101`;
         const more=rows.length>100,requests=rows.slice(0,100),last=requests.at(-1);
         return res.status(200).json({requests,next:more?{created:last.created,playerId:last.id}:null});

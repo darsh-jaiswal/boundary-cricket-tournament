@@ -6,6 +6,7 @@ import { normalizeEmail } from '../server/player-identity.js';
 import { normalizeUsername } from '../server/player-username.js';
 import { signInPortal } from '../server/clerk-portal.js';
 import { completeAppSignIn } from '../server/app-signin.js';
+import { validateSquadPlayer } from '../server/practice-players.js';
 
 const hash = value => createHash('sha256').update(value).digest('hex');
 const emailHash = email => createHmac('sha256',process.env.CLERK_SECRET_KEY).update(email).digest('hex');
@@ -60,7 +61,7 @@ export default async function handler(req,res) {
       if(body.action==='validate') {
         if(!Array.isArray(body.ids)||body.ids.length<4||body.ids.length>30||new Set(body.ids).size!==body.ids.length
             ||body.ids.some(id=>typeof id!=='string'||!/^user_[a-zA-Z0-9]+$/.test(id)))throw new HttpError(400,'Each selected player must have a distinct registered account');
-        for(const id of body.ids)await registeredUser(id);
+        for(const id of body.ids)await validateSquadPlayer(sql,registeredUser,link.owner_id,id);
         return res.status(200).json({valid:true});
       }
       const identifier=typeof body.identifier==='string'?body.identifier.trim():'';
