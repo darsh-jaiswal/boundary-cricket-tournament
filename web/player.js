@@ -12,8 +12,12 @@ async function finish(){
  try{
   if(app){
    $('#register').hidden=true;message('Opening Boundary…');
-   const {code}=await api({action:'complete',id:app});
+   const {code,alreadyLinked}=await api({action:'complete',id:app});
    if(current!==revision||user!==clerk?.user?.id)return;
+   if(alreadyLinked){
+    $('#open-app').hidden=true;$('#retry').hidden=true;
+    message('Sign-in complete. Return to the Boundary app to continue.');return;
+   }
    const url='intent://signin?id='+encodeURIComponent(app)+'&code='+encodeURIComponent(code)+'#Intent;scheme=boundary;package=com.example.madfinalproject;end';
    $('#open-app').href=url;$('#open-app').hidden=false;location.href=url;
    message('You are signed in. Tap Open Boundary if the app did not open.');

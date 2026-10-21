@@ -5,6 +5,7 @@ import { db, verifiedMember, bodyOf, uuid, HttpError } from '../server/auth.js';
 import { normalizeEmail } from '../server/player-identity.js';
 import { normalizeUsername } from '../server/player-username.js';
 import { signInPortal } from '../server/clerk-portal.js';
+import { completeAppSignIn } from '../server/app-signin.js';
 
 const hash = value => createHash('sha256').update(value).digest('hex');
 const emailHash = email => createHmac('sha256',process.env.CLERK_SECRET_KEY).update(email).digest('hex');
@@ -115,14 +116,7 @@ export default async function handler(req,res) {
     if(body.action==='complete') {
       await registeredUser(user.id);
       if(!uuid(body.id))throw new HttpError(400,'Invalid app sign-in');
-      const code=randomBytes(32).toString('hex');
-      const rows=await sql`INSERT INTO boundary_app_signin_codes(device_id,owner_id,code_hash)
-        SELECT id,${user.id},${hash(code)} FROM boundary_device_accounts
-        WHERE id=${body.id} AND login_version=2 AND owner_id IS NULL AND expires>now()
-        ON CONFLICT(device_id) DO UPDATE SET owner_id=excluded.owner_id,code_hash=excluded.code_hash,expires=now()+interval '2 minutes'
-        RETURNING device_id`;
-      if(!rows.length)throw new HttpError(409,'This sign-in expired. Start again in the Boundary app.');
-      return res.status(200).json({code});
+      return res.status(200).json(await completeAppSignIn(sql,user.id,body.id));
     }
     if(body.action==='me') {
       const rows=await sql`SELECT owner_id AS id,name,username FROM boundary_registered_players WHERE owner_id=${user.id}`;
