@@ -1398,7 +1398,7 @@ public class MainActivity extends AppCompatActivity {
     LinearLayout box = form();
     List<Team> ts = repo.teams();
     if (ts.size() < 2) {
-      message("Add teams first", "Register at least two teams and two players per team in Teams.");
+      message("Add teams first", "Register at least two teams and three players per team in Teams.");
       return;
     }
     String[] names = ts.stream().map(t -> t.name).toArray(String[]::new);
@@ -1433,8 +1433,8 @@ public class MainActivity extends AppCompatActivity {
           if (fixture != null && !(ta.name.equals(fixture.a) && tb.name.equals(fixture.b)
               || ta.name.equals(fixture.b) && tb.name.equals(fixture.a)))
             throw new IllegalArgumentException("Choose the two scheduled fixture teams.");
-          if (ta.players.size() < 2 || tb.players.size() < 2)
-            throw new IllegalArgumentException("Each team needs at least two named players.");
+          if (ta.players.size() < 3 || tb.players.size() < 3)
+            throw new IllegalArgumentException("Each team needs at least three players.");
           Team first = ta, second = tb;
           if (toss.getSelectedItemPosition() > 0) {
             boolean winnerIsFirst = toss.getSelectedItemPosition() == 1;
@@ -1453,12 +1453,14 @@ public class MainActivity extends AppCompatActivity {
           m.matchType = PlayerProfile.MATCH_TYPES[matchType.getSelectedItemPosition()];
           m.pitchType = pitchType.getSelectedItemPosition() == 0 ? ""
               : PlayerProfile.PITCH_TYPES[pitchType.getSelectedItemPosition() - 1];
-          m.rules.players = Math.max(2, Math.min(first.players.size(), second.players.size()));
+          m.rules.players = Math.max(3, Math.min(first.players.size(), second.players.size()));
           m.rules.bowlerOvers = m.rules.overs;
           if (cup != null) m.tournament = cup.id;
           rules(
               m.rules,
               () -> {
+                if (m.rules.players < 3)
+                  throw new IllegalArgumentException("Select at least three players per side to start a match.");
                 if (m.rules.players > Math.min(ta.players.size(), tb.players.size()))
                   throw new IllegalArgumentException("Players per side exceeds a selected team squad.");
                 playingSquadSetup(m, ta, tb, cup, fixture);
